@@ -45,6 +45,15 @@ export async function addAttempt(attempt) {
   });
 }
 
+export async function clearAttempts() {
+  const { t, store } = await tx(STORE_ATTEMPTS, "readwrite");
+  store.clear();
+  return new Promise((resolve, reject) => {
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
+  });
+}
+
 export async function getAllAttempts() {
   const { store } = await tx(STORE_ATTEMPTS, "readonly");
   return new Promise((resolve, reject) => {
