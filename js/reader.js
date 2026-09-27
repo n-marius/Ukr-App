@@ -1,63 +1,69 @@
-// Textanzeige: klickbare Tokens, Overlay, Timer, Klickzählung distinkter Wörter/Einheiten.
-import { renderTokenStream, showTokenOverlay } from "./tokens.js";
+// Textanzeige mit Popovers, Timer (pausierbar) und Zählung unterschiedlicher nachgeschlagener Wörter/Einheiten.
+import { renderTokenStream, togglePopover } from "./tokens.js";
 
-export function renderReader(container, text) {
-  container.innerHTML = "";
-  const openedIds = new Set();
-  let startTs = performance.now();
+export function createReader(container, text, { onAutoPause } = {}) {
+  const opened = new Set();
   let elapsedMs = 0;
+  let startedAt = performance.now();
   let running = true;
 
-  function pause() {
-    if (running) {
-      elapsedMs += performance.now() - startTs;
-      running = false;
+  const unitForms = {};
+  for (const paragraph of text.paragraphs) {
+    for (const tok of paragraph) {
+      if (tok.u) (unitForms[tok.u] ??= []).push(tok.a ?? tok.t);
     }
   }
-  function resume() {
-    if (!running) {
-      startTs = performance.now();
-      running = true;
-    }
-  }
-  function onVisibility() {
-    if (document.hidden) pause();
-    else resume();
-  }
-  document.addEventListener("visibilitychange", onVisibility);
 
   const article = document.createElement("article");
   article.className = "reader-text";
+  article.lang = "uk";
 
-  let tokenSeq = 0;
+  let seq = 0;
   for (const paragraph of text.paragraphs) {
     const p = document.createElement("p");
     renderTokenStream(p, paragraph, (span, tok) => {
-      const id = tok.u ?? `w${tokenSeq++}`;
-      openedIds.add(id);
-      const info = tok.u ? { ...text.units[tok.u], a: tok.a, t: tok.t } : tok;
-      const group = tok.u
-        ? [...article.querySelectorAll(`[data-unit="${tok.u}"]`)]
-        : [span];
-      showTokenOverlay(span, info, group);
+      if (!span.dataset.id) span.dataset.id = tok.u ?? `w${seq++}`;
+      opened.add(span.dataset.id);
+      if (tok.u) {
+        const info = { ...text.units[tok.u], a: unitForms[tok.u].join(" ") };
+        togglePopover(span, info, [...article.querySelectorAll(`[data-unit="${tok.u}"]`)]);
+      } else {
+        togglePopover(span, tok);
+      }
     });
     article.appendChild(p);
   }
   container.appendChild(article);
 
+  function pause() {
+    if (!running) return;
+    elapsedMs += performance.now() - startedAt;
+    running = false;
+  }
+  function resume() {
+    if (running) return;
+    startedAt = performance.now();
+    running = true;
+  }
+  function onVisibility() {
+    if (document.hidden && running) {
+      pause();
+      onAutoPause?.();
+    }
+  }
+  document.addEventListener("visibilitychange", onVisibility);
+
   return {
-    getElapsedSec() {
-      const current = running ? elapsedMs + (performance.now() - startTs) : elapsedMs;
-      return Math.round(current / 1000);
+    article,
+    pause,
+    resume,
+    get paused() { return !running; },
+    elapsedSec() {
+      return Math.round((running ? elapsedMs + performance.now() - startedAt : elapsedMs) / 1000);
     },
-    getClickCount() {
-      return openedIds.size;
-    },
-    getWordCount() {
-      return text.paragraphs.reduce(
-        (sum, p) => sum + p.filter((t) => !("p" in t)).length,
-        0
-      );
+    clickCount() { return opened.size; },
+    wordCount() {
+      return text.paragraphs.reduce((sum, p) => sum + p.filter((t) => !("p" in t)).length, 0);
     },
     stop() {
       pause();

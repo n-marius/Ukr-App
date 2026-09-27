@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Validiert content/index.json und alle referenzierten Textdateien gegen SPEC.md Abschnitt 3.3.
 import { readFileSync, existsSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -83,6 +84,15 @@ for (const entry of index.texts ?? []) {
     if (!usedUnitIds.has(unitId)) fail(`${tref}: Unit '${unitId}' wird in 'units' definiert, aber nirgends referenziert`);
   }
 
+  const checkToken = (token, where) => {
+    if ("p" in token) return;
+    if (!token.t) fail(`${where}: 't' fehlt`);
+    if (token.u) return;
+    if (!token.l) fail(`${where}: 'l' fehlt`);
+    if (!token.g) fail(`${where}: 'g' fehlt`);
+    if (!token.pos) fail(`${where}: 'pos' fehlt`);
+  };
+
   const questions = text.questions ?? [];
   if (questions.length !== 5) {
     fail(`${tref}: es müssen genau 5 Fragen vorhanden sein, gefunden: ${questions.length}`);
@@ -90,9 +100,24 @@ for (const entry of index.texts ?? []) {
   for (const [qi, q] of questions.entries()) {
     const qref = `${tref} questions[${qi}]`;
     if (!Array.isArray(q.q) || q.q.length === 0) fail(`${qref}: 'q' fehlt oder leer`);
+    else q.q.forEach((tok, ti) => checkToken(tok, `${qref}.q[${ti}]`));
     if (!Array.isArray(q.o) || q.o.length !== 4) fail(`${qref}: es müssen genau 4 Optionen vorhanden sein`);
     if (typeof q.a !== "number" || q.a < 0 || q.a > 3) fail(`${qref}: 'a' muss zwischen 0 und 3 liegen`);
   }
+}
+
+// Version muss steigen, sobald sich content/ gegenüber dem letzten Commit geändert hat.
+try {
+  const git = (cmd) => execSync(cmd, { cwd: root, stdio: ["ignore", "pipe", "ignore"] }).toString();
+  const changed = git("git status --porcelain -- content").trim() !== "";
+  if (changed) {
+    const previous = JSON.parse(git("git show HEAD:content/index.json")).version;
+    if (!(index.version > previous)) {
+      fail(`index.json: Inhalte geändert, aber 'version' nicht erhöht (bisher ${previous}, jetzt ${index.version})`);
+    }
+  }
+} catch {
+  // kein Git oder noch kein Commit mit content/index.json: Prüfung entfällt
 }
 
 if (errors.length > 0) {

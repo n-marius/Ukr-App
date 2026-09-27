@@ -1,7 +1,10 @@
-// App-Shell cache-first, content/index.json network-first mit Cache-Fallback,
-// gelistete Texte werden vorab gecacht. Cache-Name trägt die App-Version.
-const APP_VERSION = "1.0.0";
-const CACHE_NAME = `ukr-app-${APP_VERSION}`;
+// App-Shell: cache-first, Cache-Name enthält die App-Version (bei jeder Änderung erhöhen!).
+// content/index.json: network-first mit Cache-Fallback; alle gelisteten Texte werden vorab gecacht
+// und bei geänderter Content-Version neu geladen.
+const APP_VERSION = "2.0.0";
+const SHELL_CACHE = `ukr-shell-${APP_VERSION}`;
+const CONTENT_CACHE = "ukr-content";
+const INDEX_URL = "content/index.json";
 
 const SHELL_FILES = [
   "./",
@@ -14,75 +17,97 @@ const SHELL_FILES = [
   "js/stats.js",
   "js/store.js",
   "js/sync.js",
-  "icons/icon.svg",
+  "js/tokens.js",
+  "fonts/literata-latin-opsz-normal.woff2",
+  "fonts/literata-cyrillic-opsz-normal.woff2",
+  "fonts/inter-latin-wght-normal.woff2",
+  "fonts/inter-cyrillic-wght-normal.woff2",
+  "icons/icon-180.png",
+  "icons/icon-192.png",
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    (async () => {
-      const cache = await caches.open(CACHE_NAME);
-      await cache.addAll(SHELL_FILES);
-      try {
-        const res = await fetch("content/index.json");
-        const index = await res.json();
-        await cache.put("content/index.json", res.clone());
-        await Promise.all(
-          index.texts.map(async (t) => {
-            const r = await fetch(`content/${t.file}`);
-            await cache.put(`content/${t.file}`, r);
-          })
-        );
-      } catch {
-        // Offline bei Erstinstallation: Texte werden beim nächsten Online-Start gecacht.
-      }
-      self.skipWaiting();
-    })()
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(SHELL_CACHE);
+    await cache.addAll(SHELL_FILES.map((url) => new Request(url, { cache: "reload" })));
+    try {
+      await refreshContent(await fetch(INDEX_URL, { cache: "no-store" }));
+    } catch {
+      // offline: Texte werden beim nächsten Online-Start geladen
+    }
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    (async () => {
-      const keys = await caches.keys();
-      await Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)));
-      await self.clients.claim();
-    })()
-  );
+  event.waitUntil((async () => {
+    for (const key of await caches.keys()) {
+      if (key !== SHELL_CACHE && key !== CONTENT_CACHE) await caches.delete(key);
+    }
+    await self.clients.claim();
+  })());
 });
 
 self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
+  const { request } = event;
+  if (request.method !== "GET") return;
+  const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (url.pathname.endsWith("content/index.json")) {
-    event.respondWith(networkFirst(event.request));
-    return;
+  if (url.pathname.endsWith("/" + INDEX_URL)) {
+    event.respondWith(indexNetworkFirst(event));
+  } else if (url.pathname.includes("/content/")) {
+    event.respondWith(cacheFirst(CONTENT_CACHE, request));
+  } else {
+    event.respondWith(cacheFirst(SHELL_CACHE, request));
   }
-
-  event.respondWith(cacheFirst(event.request));
 });
 
-async function cacheFirst(request) {
-  const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(request);
-  if (cached) return cached;
+async function indexNetworkFirst(event) {
   try {
-    const res = await fetch(request);
-    if (res.ok) cache.put(request, res.clone());
-    return res;
+    const res = await fetch(event.request, { cache: "no-store" });
+    if (res.ok) {
+      event.waitUntil(refreshContent(res.clone()).catch(() => {}));
+      return res;
+    }
+    throw new Error(String(res.status));
   } catch {
+    const cached = await (await caches.open(CONTENT_CACHE)).match(INDEX_URL);
     return cached ?? Response.error();
   }
 }
 
-async function networkFirst(request) {
-  const cache = await caches.open(CACHE_NAME);
+async function refreshContent(indexResponse) {
+  if (!indexResponse.ok) return;
+  const cache = await caches.open(CONTENT_CACHE);
+  const copy = indexResponse.clone();
+  const index = await indexResponse.json();
+  const stored = await cache.match("content-version");
+  const changed = !stored || (await stored.text()) !== String(index.version);
+
+  await cache.put(INDEX_URL, copy);
+  await Promise.all(index.texts.map(async (t) => {
+    const url = `content/${t.file}`;
+    if (!changed && (await cache.match(url))) return;
+    const res = await fetch(url, { cache: "reload" });
+    if (res.ok) await cache.put(url, res);
+  }));
+  await cache.put("content-version", new Response(String(index.version)));
+}
+
+async function cacheFirst(cacheName, request) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request, { ignoreSearch: true });
+  if (cached) return cached;
   try {
     const res = await fetch(request);
-    if (res.ok) cache.put(request, res.clone());
+    if (res.ok && res.type === "basic") cache.put(request, res.clone());
     return res;
   } catch {
-    const cached = await cache.match(request);
-    return cached ?? Response.error();
+    if (request.mode === "navigate") {
+      const shell = await cache.match("index.html");
+      if (shell) return shell;
+    }
+    return Response.error();
   }
 }

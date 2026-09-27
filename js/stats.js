@@ -1,93 +1,136 @@
-// Statistik je Stufe: drei Liniendiagramme (Zeit/100 Wörter, Klicks, korrekte Antworten) als eigenes SVG.
+// Statistik je Stufe: drei kleine Liniendiagramme als eigenes SVG.
+// Die x-Achse hat feste Breite; mit wachsender Zahl an Texten rücken die Punkte zusammen.
+const NS = "http://www.w3.org/2000/svg";
+
 export function renderStats(container, attempts, level) {
   container.innerHTML = "";
-  const filtered = attempts
+  const list = attempts
     .filter((a) => a.level === level)
-    .sort((a, b) => new Date(a.ts) - new Date(b.ts));
+    .sort((a, b) => a.ts.localeCompare(b.ts));
 
-  if (filtered.length === 0) {
-    const p = document.createElement("p");
-    p.className = "stats-empty";
-    p.textContent = "Noch keine Daten für diese Stufe.";
-    container.appendChild(p);
+  if (list.length === 0) {
+    container.innerHTML = `
+      <div class="empty">
+        <p class="empty-title">Noch keine Daten</p>
+        <p class="empty-sub">Sobald du einen Text der Stufe ${level} bearbeitet hast, erscheint hier dein Verlauf.</p>
+      </div>`;
     return;
   }
 
-  const secPer100 = filtered.map((a) => Math.round((a.sec / Math.max(a.words, 1)) * 100));
-  const clicks = filtered.map((a) => a.clicks);
-  const correct = filtered.map((a) => a.correct);
+  const count = document.createElement("p");
+  count.className = "stats-count";
+  count.textContent = `${list.length} ${list.length === 1 ? "Text" : "Texte"} bearbeitet`;
+  container.appendChild(count);
 
-  container.appendChild(chart("Zeit (s / 100 Wörter)", secPer100));
-  container.appendChild(chart("Klicks", clicks));
-  container.appendChild(chart("Richtige Antworten (von 5)", correct, 5));
+  const pace = list.map((a) => Math.round((a.sec / Math.max(a.words, 1)) * 100));
+  const clicks = list.map((a) => a.clicks);
+  const correct = list.map((a) => a.correct);
+  const last = list[list.length - 1];
+
+  container.append(
+    metric({
+      name: "Lesezeit",
+      value: pace.at(-1),
+      unit: "s / 100 Wörter",
+      sub: `Zuletzt ${formatDuration(last.sec)} · Ø ${avg(pace)} s / 100 Wörter`,
+      values: pace,
+    }),
+    metric({
+      name: "Nachgeschlagen",
+      value: clicks.at(-1),
+      unit: clicks.at(-1) === 1 ? "Wort" : "Wörter",
+      sub: `Ø ${avg(clicks)} pro Text`,
+      values: clicks,
+    }),
+    metric({
+      name: "Richtige Antworten",
+      value: correct.at(-1),
+      unit: "von 5",
+      sub: `Ø ${avg(correct, 1)} von 5`,
+      values: correct,
+      max: 5,
+    })
+  );
+
+  for (const svg of container.querySelectorAll("svg.chart")) drawChart(svg);
 }
 
-function chart(title, values, fixedMax) {
-  const wrap = document.createElement("div");
-  wrap.className = "chart";
-  const h3 = document.createElement("h3");
-  h3.textContent = title;
-  wrap.appendChild(h3);
+function metric({ name, value, unit, sub, values, max }) {
+  const el = document.createElement("section");
+  el.className = "metric";
+  el.innerHTML = `
+    <div class="metric-head">
+      <span class="metric-name">${name}</span>
+      <span class="metric-value">${value}<span class="metric-unit">${unit}</span></span>
+    </div>
+    <div class="metric-sub">${sub}</div>`;
+  const svg = document.createElementNS(NS, "svg");
+  svg.classList.add("chart");
+  svg.dataset.values = JSON.stringify(values);
+  if (max !== undefined) svg.dataset.max = String(max);
+  el.appendChild(svg);
+  return el;
+}
 
-  const width = Math.max(240, values.length * 32);
-  const height = 120;
-  const padTop = 16;
-  const padBottom = 24;
-  const padX = 14;
-  const max = fixedMax ?? Math.max(...values, 1);
-  const min = 0;
-  const plotHeight = height - padTop - padBottom;
+function drawChart(svg) {
+  const values = JSON.parse(svg.dataset.values);
+  const width = Math.max(svg.clientWidth, 200);
+  const height = svg.clientHeight || 104;
+  const padL = 2, padR = 28, padT = 8, padB = 8;
+  const max = svg.dataset.max ? Number(svg.dataset.max) : niceMax(Math.max(...values));
+  const plotW = width - padL - padR;
+  const plotH = height - padT - padB;
 
-  const stepX = values.length > 1 ? (width - 2 * padX) / (values.length - 1) : 0;
-  const points = values.map((v, i) => {
-    const x = values.length > 1 ? padX + i * stepX : width / 2;
-    const y = padTop + plotHeight - ((v - min) / (max - min || 1)) * plotHeight;
-    return [x, y];
-  });
-
-  const svgNs = "http://www.w3.org/2000/svg";
-  const svg = document.createElementNS(svgNs, "svg");
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-  svg.setAttribute("width", values.length > 1 ? Math.max(width, 240) : "100%");
-  svg.setAttribute("height", height);
-  svg.classList.add("chart-svg");
+  const x = (i) => (values.length === 1 ? padL + plotW / 2 : padL + (i / (values.length - 1)) * plotW);
+  const y = (v) => padT + plotH - (v / max) * plotH;
 
-  const baseline = document.createElementNS(svgNs, "line");
-  baseline.setAttribute("x1", padX);
-  baseline.setAttribute("x2", width - padX);
-  baseline.setAttribute("y1", padTop + plotHeight);
-  baseline.setAttribute("y2", padTop + plotHeight);
-  baseline.setAttribute("class", "chart-baseline");
-  svg.appendChild(baseline);
-
-  if (points.length > 1) {
-    const pointsAttr = points.map(([x, y]) => `${x},${y}`).join(" ");
-    const polyline = document.createElementNS(svgNs, "polyline");
-    polyline.setAttribute("points", pointsAttr);
-    polyline.setAttribute("class", "chart-line");
-    svg.appendChild(polyline);
+  for (const t of [0, max / 2, max]) {
+    add(svg, "line", { x1: padL, x2: padL + plotW, y1: y(t), y2: y(t), class: "grid" });
+    const label = add(svg, "text", { x: width, y: y(t) + 3.5, "text-anchor": "end", class: "axis" });
+    label.textContent = formatTick(t);
   }
 
-  points.forEach(([x, y], i) => {
-    const c = document.createElementNS(svgNs, "circle");
-    c.setAttribute("cx", x);
-    c.setAttribute("cy", y);
-    c.setAttribute("r", 3);
-    c.setAttribute("class", "chart-dot");
-    svg.appendChild(c);
-
-    const label = document.createElementNS(svgNs, "text");
-    label.setAttribute("x", x);
-    label.setAttribute("y", y - 8);
-    label.setAttribute("class", "chart-value");
-    label.setAttribute("text-anchor", i === 0 ? "start" : i === points.length - 1 ? "end" : "middle");
-    label.textContent = values[i];
-    svg.appendChild(label);
+  const pts = values.map((v, i) => [x(i), y(v)]);
+  if (pts.length > 1) {
+    const d = pts.map(([px, py], i) => `${i ? "L" : "M"}${px.toFixed(1)},${py.toFixed(1)}`).join("");
+    add(svg, "path", { d: `${d}L${pts.at(-1)[0].toFixed(1)},${y(0)}L${pts[0][0].toFixed(1)},${y(0)}Z`, class: "area" });
+    add(svg, "path", { d, class: "line" });
+  }
+  const showAll = pts.length <= 16;
+  pts.forEach(([px, py], i) => {
+    const isLast = i === pts.length - 1;
+    if (isLast || showAll) add(svg, "circle", { cx: px, cy: py, r: isLast ? 4 : 2.5, class: isLast ? "dot-last" : "dot" });
   });
+}
 
-  const scroller = document.createElement("div");
-  scroller.className = "chart-scroll";
-  scroller.appendChild(svg);
-  wrap.appendChild(scroller);
-  return wrap;
+function add(parent, tag, attrs) {
+  const el = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  parent.appendChild(el);
+  return el;
+}
+
+function niceMax(v) {
+  if (v <= 4) return 4;
+  const pow = 10 ** Math.floor(Math.log10(v));
+  for (const step of [1, 2, 2.5, 5, 10]) {
+    if (step * pow >= v) return step * pow;
+  }
+  return 10 * pow;
+}
+
+function formatTick(t) {
+  return Number.isInteger(t) ? String(t) : t.toFixed(1).replace(".", ",");
+}
+
+function avg(values, digits = 0) {
+  const a = values.reduce((s, v) => s + v, 0) / values.length;
+  return a.toFixed(digits).replace(".", ",");
+}
+
+export function formatDuration(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m > 0 ? `${m}:${String(s).padStart(2, "0")} min` : `${s} s`;
 }
