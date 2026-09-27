@@ -29,10 +29,10 @@ export function renderStats(container, attempts, level) {
 
   container.append(
     metric({
-      name: "Lesezeit",
+      name: "Pace",
       value: pace.at(-1),
       unit: "s / 100 Wörter",
-      sub: `Zuletzt ${formatDuration(last.sec)} · Ø ${avg(pace)} s / 100 Wörter`,
+      sub: `Tempo ${wpm(last)} Wörter / min · Lesezeit ${formatDuration(last.sec)} · Ø ${avg(pace)} s`,
       values: pace,
     }),
     metric({
@@ -53,6 +53,10 @@ export function renderStats(container, attempts, level) {
   );
 
   for (const svg of container.querySelectorAll("svg.chart")) drawChart(svg);
+}
+
+function wpm(a) {
+  return a.sec > 0 ? Math.round((a.words / a.sec) * 60) : 0;
 }
 
 function metric({ name, value, unit, sub, values, max }) {
