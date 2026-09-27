@@ -1,67 +1,84 @@
-// Gemeinsame Token-Darstellung für Reader und Quiz: korrekte Zeichensetzung
-// (Satzzeichen hängen am Wort davor, Leerzeichen kommt automatisch danach)
-// und ein Overlay, das nie über den sichtbaren Bereich hinausragt.
+// Gemeinsame Token-Darstellung für Text und Fragen.
+// Satzzeichen hängen am vorigen Wort; danach setzt die App ein Leerzeichen,
+// sofern das Satzzeichen nicht selbst mit Leerraum endet.
 
 export function renderTokenStream(parent, tokens, onWordClick) {
-  let prevType = null;
-  tokens.forEach((tok, i) => {
+  let prev = null;
+  tokens.forEach((tok) => {
     const isPunct = "p" in tok;
-
-    if (!isPunct && prevType === "word") {
+    if (!isPunct && prev && (!("p" in prev) || !/\s$/.test(prev.p))) {
       parent.appendChild(document.createTextNode(" "));
     }
-    if (!isPunct && prevType === "punct" && !/\s$/.test(tokens[i - 1].p)) {
-      parent.appendChild(document.createTextNode(" "));
-    }
-
     if (isPunct) {
-      parent.appendChild(document.createTextNode(tok.p));
+      // Satzzeichen dürfen keine Zeile beginnen (z. B. Gedankenstrich)
+      parent.appendChild(document.createTextNode(tok.p.replace(/^\s+/, "\u00a0")));
     } else {
       const span = document.createElement("span");
       span.className = "token";
       span.textContent = tok.t;
       if (tok.u) span.dataset.unit = tok.u;
-      if (onWordClick) span.addEventListener("click", () => onWordClick(span, tok));
+      if (onWordClick) span.addEventListener("click", (e) => {
+        if (e.target !== span) return; // Tipp ins Popover selbst
+        onWordClick(span, tok);
+      });
       parent.appendChild(span);
     }
-    prevType = isPunct ? "punct" : "word";
+    prev = tok;
   });
 }
 
-export function showTokenOverlay(span, info, groupSpans = [span]) {
-  const existing = groupSpans.map((s) => s.querySelector(".token-overlay")).find(Boolean);
+let zIndex = 20;
+
+// Öffnet bzw. schließt das Popover eines Wortes (oder einer Mehrwort-Einheit).
+export function togglePopover(span, info, group = [span]) {
+  const existing = group.map((s) => s.querySelector(":scope > .pop")).find(Boolean);
   if (existing) {
     existing.remove();
-    groupSpans.forEach((s) => s.classList.remove("token-open"));
+    group.forEach((s) => {
+      s.classList.remove("is-open");
+      s.classList.add("is-seen");
+    });
     return;
   }
 
-  const morph = formatMorph(info.pos, info.m);
-  const overlay = document.createElement("span");
-  overlay.className = "token-overlay";
-  overlay.innerHTML = `
-    <span class="ov-accent">${escapeHtml(info.a ?? info.t ?? "")}</span>
-    <span class="ov-gloss">${escapeHtml(info.g ?? "")}</span>
-    <span class="ov-morph">${escapeHtml(morph)}</span>
+  const pop = document.createElement("span");
+  pop.className = "pop";
+  pop.setAttribute("role", "tooltip");
+  pop.style.zIndex = String(++zIndex);
+  pop.innerHTML = `
+    <span class="pop-form" lang="uk">${escapeHtml(info.a ?? info.t ?? "")}</span>
+    <span class="pop-gloss">${escapeHtml(info.g ?? "")}</span>
+    <span class="pop-gram">${escapeHtml(formatMorph(info.pos, info.m))}</span>
   `;
-  span.appendChild(overlay);
-  groupSpans.forEach((s) => s.classList.add("token-open"));
+  pop.addEventListener("click", () => togglePopover(span, info, group));
+  span.appendChild(pop);
+  group.forEach((s) => s.classList.add("is-open"));
+  place(span, pop);
+}
 
-  const HEADER_SAFE = 64;
-  const EDGE_MARGIN = 10;
-  const rect = overlay.getBoundingClientRect();
+function place(span, pop) {
+  const EDGE = 12;
+  const GAP = 10;
+  const s = span.getBoundingClientRect();
+  const p = pop.getBoundingClientRect();
+  const vw = document.documentElement.clientWidth;
+  const bar = document.querySelector(".bar");
+  const topLimit = (bar ? bar.getBoundingClientRect().bottom : 0) + 6;
 
-  if (rect.top < HEADER_SAFE) overlay.classList.add("below");
-  if (rect.right > window.innerWidth - EDGE_MARGIN) overlay.classList.add("align-right");
-  const after = overlay.getBoundingClientRect();
-  if (after.left < EDGE_MARGIN) overlay.classList.remove("align-right");
+  const center = s.left + s.width / 2;
+  const left = Math.min(Math.max(center - p.width / 2, EDGE), vw - EDGE - p.width);
+  const above = s.top - GAP - p.height >= topLimit;
+
+  pop.style.left = `${left - s.left}px`;
+  pop.style.top = above ? `${-p.height - GAP}px` : `${s.height + GAP}px`;
+  pop.classList.add(above ? "is-above" : "is-below");
+  pop.style.setProperty("--arrow-x", `${Math.min(Math.max(center - left, 18), p.width - 18)}px`);
 }
 
 export function formatMorph(pos, m) {
   const parts = [pos];
   if (m) {
-    const order = ["gen", "num", "case", "asp", "tense", "pers", "mood", "deg"];
-    for (const key of order) {
+    for (const key of ["gen", "num", "case", "asp", "tense", "pers", "mood", "deg"]) {
       if (m[key] !== undefined) parts.push(String(m[key]));
     }
     if (m.inf) parts.push("Inf");

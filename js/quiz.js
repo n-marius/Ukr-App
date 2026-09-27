@@ -1,68 +1,66 @@
-// Kontrolle: 5 Fragen, je 4 gemischte Optionen, sofortiges Feedback, Klicks separat gezählt.
-import { renderTokenStream, showTokenOverlay } from "./tokens.js";
+// Kontrolle: alle Fragen auf einer Seite, je vier gemischte Antworten im 2×2-Raster.
+// Die erste Auswahl zählt; Klicks auf Fragewörter werden separat gezählt.
+import { renderTokenStream, togglePopover } from "./tokens.js";
 
-export function renderQuiz(container, text, onFinished) {
-  container.innerHTML = "";
-  let quizClicks = 0;
-  let correctCount = 0;
-  let qIndex = 0;
+const KEYS = ["A", "B", "C", "D"];
 
-  const questions = text.questions.map((q) => {
-    const order = shuffle([0, 1, 2, 3]);
-    return { ...q, order };
-  });
+export function renderQuiz(container, text, { onProgress } = {}) {
+  let answered = 0;
+  let correct = 0;
+  let questionClicks = 0;
 
-  function renderQuestion() {
-    container.innerHTML = "";
-    const q = questions[qIndex];
-    const wrap = document.createElement("div");
-    wrap.className = "quiz-question";
+  text.questions.forEach((q, qi) => {
+    const block = document.createElement("section");
+    block.className = "q";
+
+    const num = document.createElement("p");
+    num.className = "q-num";
+    num.textContent = `Frage ${qi + 1}`;
 
     const prompt = document.createElement("p");
-    prompt.className = "quiz-prompt reader-text";
+    prompt.className = "q-text";
+    prompt.lang = "uk";
     renderTokenStream(prompt, q.q, (span, tok) => {
-      quizClicks++;
-      showTokenOverlay(span, tok);
+      questionClicks++;
+      togglePopover(span, tok);
     });
-    wrap.appendChild(prompt);
 
-    const counter = document.createElement("p");
-    counter.className = "quiz-counter";
-    counter.textContent = `Frage ${qIndex + 1} / 5`;
-    wrap.appendChild(counter);
-
-    const optsWrap = document.createElement("div");
-    optsWrap.className = "quiz-options";
-    let answered = false;
-    for (const origIdx of q.order) {
+    const grid = document.createElement("div");
+    grid.className = "answers";
+    const buttons = shuffle([0, 1, 2, 3]).map((optIndex, pos) => {
       const btn = document.createElement("button");
-      btn.className = "quiz-option";
-      btn.textContent = q.o[origIdx];
-      btn.addEventListener("click", () => {
-        if (answered) return;
-        answered = true;
-        const isCorrect = origIdx === q.a;
-        if (isCorrect) correctCount++;
-        btn.classList.add(isCorrect ? "correct" : "wrong");
-        if (!isCorrect) {
-          const correctBtn = [...optsWrap.children].find(
-            (b) => b.textContent === q.o[q.a]
-          );
-          correctBtn?.classList.add("correct");
-        }
-        setTimeout(() => {
-          qIndex++;
-          if (qIndex < questions.length) renderQuestion();
-          else onFinished({ correct: correctCount, quizClicks });
-        }, 700);
-      });
-      optsWrap.appendChild(btn);
-    }
-    wrap.appendChild(optsWrap);
-    container.appendChild(wrap);
-  }
+      btn.className = "answer";
+      btn.type = "button";
+      btn.dataset.opt = String(optIndex);
+      btn.innerHTML = `<span class="answer-key">${KEYS[pos]}</span><span lang="uk"></span>`;
+      btn.lastElementChild.textContent = q.o[optIndex];
+      btn.addEventListener("click", () => choose(optIndex));
+      grid.appendChild(btn);
+      return btn;
+    });
 
-  renderQuestion();
+    function choose(optIndex) {
+      if (block.classList.contains("is-done")) return;
+      block.classList.add("is-done");
+      const isCorrect = optIndex === q.a;
+      if (isCorrect) correct++;
+      answered++;
+      for (const b of buttons) {
+        const opt = Number(b.dataset.opt);
+        if (opt === q.a) b.classList.add("is-correct");
+        else if (opt === optIndex) b.classList.add("is-wrong");
+        b.disabled = true;
+      }
+      onProgress?.(answered, text.questions.length);
+    }
+
+    block.append(num, prompt, grid);
+    container.appendChild(block);
+  });
+
+  return {
+    result: () => ({ correct, answered, questionClicks }),
+  };
 }
 
 function shuffle(arr) {

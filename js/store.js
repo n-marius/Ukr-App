@@ -103,12 +103,27 @@ export async function exportData() {
 export async function importData(json) {
   const data = JSON.parse(json);
   if (!Array.isArray(data.attempts)) throw new Error("Ungültiges Importformat");
-  await mergeAttempts(data.attempts);
+  const resetAt = await getSetting("resetAt", null);
+  const valid = data.attempts.filter((a) => a && a.id && a.textId && a.level && a.ts && (!resetAt || a.ts > resetAt));
+  await mergeAttempts(valid);
+  return valid.length;
+}
+
+// Entfernt alle Datensätze, die vor oder bei einem Zurücksetzen entstanden sind.
+export async function deleteAttemptsUpTo(resetAt) {
+  const stale = (await getAllAttempts()).filter((a) => a.ts <= resetAt);
+  if (stale.length === 0) return;
+  const { t, store } = await tx(STORE_ATTEMPTS, "readwrite");
+  for (const a of stale) store.delete(a.id);
+  return new Promise((resolve, reject) => {
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
+  });
 }
 
 export function detectDevice() {
   const ua = navigator.userAgent || "";
   if (/iphone/i.test(ua)) return "iphone";
-  if (/ipad/i.test(ua)) return "ipad";
+  if (/ipad/i.test(ua) || (/macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) return "ipad";
   return "laptop";
 }

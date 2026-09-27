@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#2f6b4f"/>
-  <rect y="0" width="512" height="256" fill="#5fbde8"/>
-  <rect y="256" width="512" height="256" fill="#ffd23f"/>
-  <text x="256" y="300" font-family="Georgia, serif" font-size="230" font-weight="bold"
-        text-anchor="middle" fill="#1a1816">Ч</text>
-</svg>

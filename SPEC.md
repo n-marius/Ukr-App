@@ -5,7 +5,7 @@
 - Kein Build-Schritt: Vanilla HTML/CSS/JS (ES-Module), keine Frameworks, keine externen Libraries. Diagramme als eigenes SVG.
 - Vollständig offline nach erstem Laden (Service Worker). Netz nur für Updates und Sync.
 - Zielgeräte: iPhone (Safari, Home-Bildschirm) und Laptop (Browser).
-- UI: minimalistisch, modern, edel. Serifenschrift für den Lesetext, Sans-Serif für UI. Hell- und Dunkelmodus nach Systemeinstellung. Große Tippflächen.
+- UI: minimalistisch, modern, edel, ausschließlich hell. Serifenschrift (Literata) für ukrainischen Text, Sans-Serif (Systemschrift, Fallback Inter) für die Oberfläche; Schriften liegen lokal unter `/fonts/`. Große Tippflächen.
 
 ## 2. Repo-Struktur
 ```
@@ -15,13 +15,15 @@
 /sw.js
 /icons/
 /js/app.js          Routing, Screens
-/js/reader.js       Textanzeige, Overlay, Timer, Klickzählung
+/js/reader.js       Textanzeige, Timer, Pause, Klickzählung
+/js/tokens.js       Token-Darstellung, Overlay (für Text und Fragen)
 /js/quiz.js         Kontrolle
 /js/stats.js        Statistik, Diagramme
 /js/store.js        lokale Daten (IndexedDB), Export/Import
 /js/sync.js         Gist-Sync
 /content/index.json
 /content/A1/a1-0001.json …
+/fonts/             Literata, Inter (woff2, OFL)
 /tools/validate.mjs Prüfskript für Content (Node)
 /SPEC.md
 ```
@@ -100,8 +102,9 @@ Das Skript prüft vor jedem Commit:
 - **Start:** Stufenwahl (A1–C2), dann Themen-Chips aus den verfügbaren, noch nicht bearbeiteten Texten dieser Stufe. Der Schalter „Bereits bearbeitete“ wechselt die Auswahl auf bearbeitete Texte. Die App wählt innerhalb des Themas den nächsten Text nach ID.
 - **Lesen:** Ein Tipp auf ein Wort blendet darüber ein Overlay ein mit Betonungsform, Bedeutung, Wortart und Morphologie-Kurzform (z. B. „Subst · f · Sg · Nom“). Ein erneuter Tipp schließt es. Mehrere Overlays gleichzeitig sind erlaubt.
 - **Timer:** Er startet beim Anzeigen des Textes und stoppt bei „Kontrolle“. Er pausiert, solange die App im Hintergrund ist (`visibilitychange`).
+- **Kein Abbruch:** Lesen und Kontrolle können nicht abgebrochen werden. Möglich ist nur das Pausieren des Lesens: Der Text wird ausgeblendet, der Timer steht. Wechselt die App in den Hintergrund, pausiert sie automatisch.
 - **Klickzählung:** Gezählt wird die Anzahl *unterschiedlicher* Wörter bzw. Einheiten, die mindestens einmal geöffnet wurden. Erneutes Öffnen desselben Wortes zählt nicht. Klicks in den Fragen zählen separat und fließen nicht in die Statistik ein.
-- **Kontrolle:** 5 Fragen, je 4 Optionen. Nach der Auswahl wird sofort richtig/falsch angezeigt. Am Ende folgt eine Ergebnisübersicht mit Zeit, Klicks und x/5.
+- **Kontrolle:** Alle 5 Fragen stehen auf einer Seite, jeweils die Frage und darunter die 4 Antworten im 2×2-Raster (A–D). Die erste Auswahl zählt: Die richtige Antwort wird grün, eine falsch gewählte rot markiert (Rand kräftiger als Hintergrund). Die Auswertung (Zeit, Klicks, x/5) ist erst möglich, wenn alle Fragen beantwortet sind.
 - **Wiederholungen:** Erneute Bearbeitungen werden durchgeführt und angezeigt, aber nicht in die Statistik geschrieben.
 
 ## 5. Statistik
@@ -116,24 +119,25 @@ Das Skript prüft vor jedem Commit:
 ```
 - Nur Erstbearbeitungen werden gespeichert.
 - „Bearbeitet“ ergibt sich aus dem Vorhandensein eines Datensatzes.
-- Die Liste ist append-only.
+- Die Liste ist append-only. Einzige Ausnahme ist „Statistik zurücksetzen“ (Einstellungen, mit Ja/Nein-Rückfrage): Es setzt `resetAt` auf den aktuellen Zeitpunkt; alle Datensätze mit `ts <= resetAt` werden verworfen.
 - Export/Import als JSON unter Einstellungen.
 
 ## 7. Sync
-- Ziel ist ein privates (secret) GitHub-Gist mit der Datei `stats.json`, die `{ "v": 1, "attempts": [...] }` enthält.
+- Ziel ist ein privates (secret) GitHub-Gist mit der Datei `stats.json`, die `{ "v": 1, "resetAt": null, "attempts": [...] }` enthält.
 - Auth über einen GitHub-Token mit Scope `gist`. Er wird einmal pro Gerät in den Einstellungen eingegeben und lokal gespeichert, ebenso die Gist-ID.
 - **Ablauf:** Beim Start, nach jeder abgeschlossenen Kontrolle und bei der Rückkehr online:
   1. Gist laden.
-  2. Vereinigungsmenge nach `id` bilden.
+  2. `resetAt` = späterer Wert aus lokal und Gist; ältere Datensätze verwerfen. Vereinigungsmenge nach `id` bilden.
   3. Lokal speichern.
   4. Zurückschreiben, falls etwas neu ist.
-- Konflikte sind ausgeschlossen, weil die Liste append-only ist.
+- Konflikte sind ausgeschlossen, weil die Liste append-only ist und ein Zurücksetzen über `resetAt` auf alle Geräte wirkt.
 - Offline wird lokal weitergearbeitet und später synchronisiert. Der Sync-Status (letzter Sync, Fehler) wird in den Einstellungen angezeigt.
 
 ## 8. Service Worker
 - App-Shell wird cache-first ausgeliefert.
 - `content/index.json` wird network-first geladen, mit Cache als Fallback. Alle darin gelisteten Texte werden vorab gecacht.
-- Der Cache-Name enthält die App-Version. Nach einem Update erscheint ein dezenter Hinweis „Neue Version – neu laden“.
+- Der Cache-Name enthält die App-Version (`APP_VERSION` in `sw.js`); sie wird bei jeder Änderung an App-Dateien erhöht. Nach einem Update erscheint ein dezenter Hinweis „Neue Version – neu laden“.
+- Texte liegen in einem eigenen Cache und werden neu geladen, sobald sich `version` in `index.json` ändert.
 
 ## 9. Ausgegraute Elemente (sichtbar, deaktiviert)
 - Funktion 2 „Frage-Antwort“ im Hauptmenü.
