@@ -29,6 +29,7 @@ const ICON = {
   text: svg(`<path d="M5 4.5h9.5L19 9v10.5H5z"/><path d="M14.5 4.5V9H19M8.5 13h7M8.5 16.5h5"/>`),
   dialog: svg(`<path d="M4 5.5h11v8H8.5L5 16.5v-3H4z"/><path d="M15 9h5v8h-1v2.5L16 17h-4.5v-3.5"/>`),
   exit: svg(`<path d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3M14 16l4-4-4-4M18 12H8"/>`),
+  cards: svg(`<rect x="6.5" y="7" width="14" height="10" rx="1.5"/><path d="M3.5 5v10a1.5 1.5 0 0 0 1.5 1.5"/><path d="M10.5 12h6M10.5 14.5h4"/>`),
 };
 
 const root = document.getElementById("app");
@@ -91,6 +92,12 @@ async function showHome() {
           ${totalChats ? ICON.arrow : `<span class="badge">Noch keine Chats</span>`}
           <span class="mode-title">Frage-Antwort</span>
           <span class="mode-text">${totalChats ? plural(totalChats, "Gespräch", "Gespräche") : "Gespräche führen und verstehen"}</span>
+        </button>
+        <button class="mode" disabled>
+          <span class="mode-icon">${ICON.cards}</span>
+          <span class="badge">In Vorbereitung</span>
+          <span class="mode-title">Vokabeln</span>
+          <span class="mode-text">Wortschatz gezielt üben</span>
         </button>
       </div>`,
   });
@@ -300,7 +307,7 @@ async function showChatRoom(entry, level, tag) {
   });
 
   on("#leave", "click", () => showChatList(level, tag));
-  renderChat($("#chat"), chat);
+  renderChat($("#chat"), chat, { onEnd: () => sync() });
 }
 
 // ---------- Lesen ----------

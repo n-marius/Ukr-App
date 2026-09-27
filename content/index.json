@@ -1,10 +1,16 @@
 {
-  "version": 3,
-  "contentHash": "45d2f090a19ee981",
+  "version": 4,
+  "contentHash": "8916920e1299f634",
   "texts": [
     { "id": "a1-0001", "level": "A1", "tags": ["Grundlagen"], "titleDe": "Hallo, ich bin Oksana", "title": "Привіт, я Оксана!", "file": "A1/a1-0001.json" },
     { "id": "a1-0002", "level": "A1", "tags": ["Supermarkt"], "titleDe": "Meine Einkaufsliste", "title": "Мій список", "file": "A1/a1-0002.json" },
     { "id": "a1-0003", "level": "A1", "tags": ["Restaurant"], "titleDe": "Ein gutes Mittagessen", "title": "Гарний обід", "file": "A1/a1-0003.json" },
-    { "id": "a2-0001", "level": "A2", "tags": ["Gesundheit"], "titleDe": "Eine Erkältung", "title": "Звичайна застуда", "file": "A2/a2-0001.json" }
+    { "id": "a1-0004", "level": "A1", "tags": ["Freizeit"], "titleDe": "Mein Sonntag", "title": "Моя неділя", "file": "A1/a1-0004.json" },
+    { "id": "a1-0005", "level": "A1", "tags": ["Gesundheit"], "titleDe": "Ich bin krank", "title": "Я хворий", "file": "A1/a1-0005.json" },
+    { "id": "a1-0006", "level": "A1", "tags": ["Reisen"], "titleDe": "Nach Odesa", "title": "В Одесу!", "file": "A1/a1-0006.json" },
+    { "id": "a1-0007", "level": "A1", "tags": ["Verkehr"], "titleDe": "Die Straßenbahn Nummer sechs", "title": "Трамвай номер шість", "file": "A1/a1-0007.json" },
+    { "id": "a2-0001", "level": "A2", "tags": ["Gesundheit"], "titleDe": "Eine Erkältung", "title": "Звичайна застуда", "file": "A2/a2-0001.json" },
+    { "id": "a2-0002", "level": "A2", "tags": ["Reisen"], "titleDe": "Reise nach Lwiw", "title": "Подорож до Львова", "file": "A2/a2-0002.json" },
+    { "id": "a2-0003", "level": "A2", "tags": ["Verkehr"], "titleDe": "Der Weg zur Arbeit", "title": "Дорога на роботу", "file": "A2/a2-0003.json" }
   ]
 }

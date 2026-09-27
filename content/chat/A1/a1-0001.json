@@ -485,9 +485,7 @@
         {
           "t": "Бувай",
           "a": "Бува́й",
-          "l": "бувати",
-          "g": "tschüss",
-          "pos": "Interj"
+          "u": "u4"
         },
         {
           "p": "!"
@@ -847,9 +845,7 @@
         {
           "t": "Бувай",
           "a": "Бува́й",
-          "l": "бувати",
-          "g": "tschüss",
-          "pos": "Interj"
+          "u": "u4"
         },
         {
           "p": "!"
@@ -872,6 +868,11 @@
       "g": "nichts (Höflichkeitsformel: nichts, danke)",
       "pos": "Wendung",
       "note": "feste Wendung"
+    },
+    "u4": {
+      "g": "tschüss",
+      "pos": "Wendung",
+      "note": "Verabschiedung (Imperativform, als feste Formel zulässig)"
     }
   }
 }
