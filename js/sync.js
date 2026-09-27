@@ -1,7 +1,11 @@
-// Gist-Sync: privates Gist mit stats.json = { v, resetAt, attempts }.
-// Vereinigung nach id (append-only). resetAt ist eine gemeinsame Grenze:
-// Datensätze mit ts <= resetAt werden auf allen Geräten verworfen.
-import { getAllAttempts, mergeAttempts, getSetting, setSetting, clearAttempts, deleteAttemptsUpTo } from "./store.js";
+// Gist-Sync: privates Gist mit stats.json = { v, resetAt, attempts, chatStarts }.
+// Vereinigung jeweils nach id (append-only). resetAt ist eine gemeinsame Grenze:
+// Datensätze/Ereignisse mit ts <= resetAt werden auf allen Geräten verworfen.
+import {
+  getAllAttempts, mergeAttempts, deleteAttemptsUpTo, clearAttempts,
+  getAllChatStarts, mergeChatStarts, deleteChatStartsUpTo,
+  getSetting, setSetting,
+} from "./store.js";
 
 const API = "https://api.github.com";
 const FILE = "stats.json";
@@ -40,7 +44,7 @@ async function run() {
 
   try {
     let id = gistId;
-    let remote = { attempts: [], resetAt: null };
+    let remote = { attempts: [], chatStarts: [], resetAt: null };
 
     if (id) {
       const res = await fetch(`${API}/gists/${encodeURIComponent(id)}`, { headers: headers(token), cache: "no-store" });
@@ -49,7 +53,7 @@ async function run() {
       const content = gist.files?.[FILE]?.content;
       if (content) {
         const parsed = JSON.parse(content);
-        remote = { attempts: parsed.attempts ?? [], resetAt: parsed.resetAt ?? null };
+        remote = { attempts: parsed.attempts ?? [], chatStarts: parsed.chatStarts ?? [], resetAt: parsed.resetAt ?? null };
       }
     }
 
@@ -58,24 +62,31 @@ async function run() {
     if (resetAt) {
       await setSetting("resetAt", resetAt);
       await deleteAttemptsUpTo(resetAt);
+      await deleteChatStartsUpTo(resetAt);
     }
 
     const before = await getAllAttempts();
     await mergeAttempts(remote.attempts.filter((a) => !resetAt || a.ts > resetAt));
     const merged = await getAllAttempts();
 
+    await mergeChatStarts(remote.chatStarts.filter((e) => !resetAt || e.ts > resetAt));
+    const mergedChatStarts = await getAllChatStarts();
+
     const remoteIds = new Set(remote.attempts.map((a) => a.id));
+    const remoteChatStartIds = new Set(remote.chatStarts.map((e) => e.id));
     const needsWrite =
       !id ||
       resetAt !== remote.resetAt ||
       merged.length !== remote.attempts.length ||
-      merged.some((a) => !remoteIds.has(a.id));
+      merged.some((a) => !remoteIds.has(a.id)) ||
+      mergedChatStarts.length !== remote.chatStarts.length ||
+      mergedChatStarts.some((e) => !remoteChatStartIds.has(e.id));
 
     if (needsWrite) {
       const body = {
         description: "Ukrainisch-Lese-App · Statistik",
         public: false,
-        files: { [FILE]: { content: JSON.stringify({ v: 1, resetAt, attempts: merged }, null, 2) } },
+        files: { [FILE]: { content: JSON.stringify({ v: 1, resetAt, attempts: merged, chatStarts: mergedChatStarts }, null, 2) } },
       };
       const res = await fetch(id ? `${API}/gists/${encodeURIComponent(id)}` : `${API}/gists`, {
         method: id ? "PATCH" : "POST",
