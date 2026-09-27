@@ -24,6 +24,9 @@ const ICON = {
   settings: svg(`<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>`),
   pause: svg(`<path d="M9 6v12M15 6v12"/>`, `stroke-width="2.2"`),
   play: svg(`<path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/>`),
+  arrow: svg(`<path d="M5 12h14M13 6l6 6-6 6"/>`, `class="mode-go"`),
+  text: svg(`<path d="M5 4.5h9.5L19 9v10.5H5z"/><path d="M14.5 4.5V9H19M8.5 13h7M8.5 16.5h5"/>`),
+  dialog: svg(`<path d="M4 5.5h11v8H8.5L5 16.5v-3H4z"/><path d="M15 9h5v8h-1v2.5L16 17h-4.5v-3.5"/>`),
 };
 
 const root = document.getElementById("app");
@@ -56,29 +59,12 @@ const on = (sel, ev, fn) => $(sel)?.addEventListener(ev, fn);
 const backButton = `<button class="icon-btn" id="back" aria-label="Zurück">${ICON.back}</button>`;
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
-// ---------- Start ----------
+// ---------- Start: Funktionswahl ----------
 
 async function showHome() {
   const done = new Set((await getAllAttempts()).map((a) => a.textId));
-
-  const levelRows = LEVELS.map((level) => {
-    const texts = index.texts.filter((t) => t.level === level);
-    const open = texts.filter((t) => !done.has(t.id)).length;
-    if (texts.length === 0) {
-      return `
-        <button class="row" disabled>
-          <span class="row-lead">${level}</span>
-          <span class="row-main"><span class="row-title">${LEVEL_NAMES[level]}</span><span class="row-sub">Noch keine Texte</span></span>
-        </button>`;
-    }
-    return `
-      <button class="row" data-level="${level}">
-        <span class="row-lead">${level}</span>
-        <span class="row-main"><span class="row-title">${LEVEL_NAMES[level]}</span><span class="row-sub">${plural(texts.length, "Text", "Texte")}</span></span>
-        <span class="row-trail${open ? " is-strong" : ""}">${open ? `${open} offen` : "Alle gelesen"}</span>
-        ${ICON.chevron}
-      </button>`;
-  }).join("");
+  const total = index.texts.length;
+  const open = index.texts.filter((t) => !done.has(t.id)).length;
 
   render("home", {
     right: `
@@ -86,36 +72,78 @@ async function showHome() {
       <button class="icon-btn" id="to-settings" aria-label="Einstellungen">${ICON.settings}</button>`,
     body: `
       <header class="page-head">
-        <p class="eyebrow">Lesetraining</p>
+        <p class="kicker">Lesetraining</p>
         <h1 class="page-title" lang="uk">Українська</h1>
       </header>
-      <h2 class="label">Stufe</h2>
-      <div class="group">${levelRows}</div>
-      <h2 class="label">Weitere Übungen</h2>
-      <div class="group">
-        <button class="row" disabled>
-          <span class="row-main"><span class="row-title">Frage-Antwort</span><span class="row-sub">In Vorbereitung</span></span>
+      <div class="modes">
+        <button class="mode" id="mode-text" ${total ? "" : "disabled"}>
+          <span class="mode-icon">${ICON.text}</span>
+          ${total ? ICON.arrow : `<span class="badge">Noch keine Texte</span>`}
+          <span class="mode-title">Text</span>
+          <span class="mode-text">${total ? `${plural(total, "Text", "Texte")} · ${open} offen` : "Lesen mit Wortinfos und Kontrolle"}</span>
+        </button>
+        <button class="mode" disabled>
+          <span class="mode-icon">${ICON.dialog}</span>
+          <span class="badge">In Vorbereitung</span>
+          <span class="mode-title">Frage-Antwort</span>
+          <span class="mode-text">Fragen verstehen und beantworten</span>
         </button>
       </div>`,
   });
 
   on("#to-stats", "click", () => showStats());
   on("#to-settings", "click", showSettings);
-  root.querySelectorAll("[data-level]").forEach((b) => b.addEventListener("click", () => showTopics(b.dataset.level)));
+  on("#mode-text", "click", showLevels);
 }
 
-// ---------- Themen ----------
+// ---------- Stufe ----------
+
+async function showLevels() {
+  const done = new Set((await getAllAttempts()).map((a) => a.textId));
+
+  const rows = LEVELS.map((level) => {
+    const texts = index.texts.filter((t) => t.level === level);
+    const open = texts.filter((t) => !done.has(t.id)).length;
+    const available = texts.length > 0;
+    return `
+      <button class="row" data-level="${level}" ${available ? "" : "disabled"}>
+        <span class="row-lead">${level}</span>
+        <span class="row-main">
+          <span class="row-title">${LEVEL_NAMES[level]}</span>
+          <span class="row-sub">${available ? `${plural(texts.length, "Text", "Texte")} · ${open ? `${open} offen` : "alle bearbeitet"}` : "Noch keine Texte"}</span>
+        </span>
+        ${available ? ICON.chevron : ""}
+      </button>`;
+  }).join("");
+
+  render("levels", {
+    left: backButton,
+    body: `
+      <header class="page-head">
+        <p class="kicker">Text</p>
+        <h1 class="page-title">Stufe wählen</h1>
+      </header>
+      <div class="group">${rows}</div>`,
+  });
+
+  on("#back", "click", showHome);
+  root.querySelectorAll("[data-level]:not(:disabled)").forEach((b) => b.addEventListener("click", () => showTopics(b.dataset.level)));
+}
+
+// ---------- Thema ----------
 
 async function showTopics(level, showDone = false) {
   const done = new Set((await getAllAttempts()).map((a) => a.textId));
   const texts = index.texts.filter((t) => t.level === level);
+  const doneCount = texts.filter((t) => done.has(t.id)).length;
   const pool = texts.filter((t) => done.has(t.id) === showDone);
 
   const tagCounts = new Map();
   for (const t of pool) for (const tag of t.tags) tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
 
   const chips = [...tagCounts]
-    .map(([tag, n]) => `<button class="chip" data-tag="${escapeHtml(tag)}"><span lang="uk">${escapeHtml(tag)}</span><span class="chip-count">${n}</span></button>`)
+    .sort((a, b) => a[0].localeCompare(b[0], "de"))
+    .map(([tag, n]) => `<button class="chip" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}<span class="chip-count">${n}</span></button>`)
     .join("");
 
   const empty = showDone
@@ -126,39 +154,42 @@ async function showTopics(level, showDone = false) {
     left: backButton,
     body: `
       <header class="page-head">
-        <p class="eyebrow">Stufe ${level}</p>
-        <h1 class="page-title">${LEVEL_NAMES[level]}</h1>
-        <p class="page-sub">${plural(texts.length, "Text", "Texte")} · ${texts.filter((t) => done.has(t.id)).length} bearbeitet</p>
+        <p class="kicker">Text · <b>${level}</b> ${LEVEL_NAMES[level]}</p>
+        <h1 class="page-title">Thema wählen</h1>
+        <p class="page-sub">${plural(texts.length, "Text", "Texte")} · ${doneCount} bearbeitet</p>
       </header>
       <div class="seg" role="tablist">
         <button role="tab" data-done="0" class="${showDone ? "" : "is-active"}">Offen</button>
         <button role="tab" data-done="1" class="${showDone ? "is-active" : ""}">Bereits bearbeitet</button>
       </div>
-      <h2 class="label" style="margin-top:32px">Themen</h2>
+      <h2 class="label">Themen</h2>
       ${chips ? `<div class="chips">${chips}</div>` : empty}`,
   });
 
-  on("#back", "click", showHome);
+  on("#back", "click", showLevels);
   root.querySelectorAll("[data-done]").forEach((b) =>
     b.addEventListener("click", () => showTopics(level, b.dataset.done === "1"))
   );
   root.querySelectorAll(".chip").forEach((b) =>
     b.addEventListener("click", () => {
       const next = pool.filter((t) => t.tags.includes(b.dataset.tag)).sort((a, c) => a.id.localeCompare(c.id))[0];
-      if (next) showReader(next);
+      if (next) showReader(next, b.dataset.tag);
     })
   );
 }
 
 // ---------- Lesen ----------
 
-async function showReader(entry) {
+const crumb = (entry, tag) =>
+  `<span class="bar-crumb"><b>${entry.level}</b> · ${escapeHtml(tag ?? entry.tags[0] ?? "")}</span>`;
+
+async function showReader(entry, tag) {
   const text = await (await fetch(`content/${entry.file}`)).json();
   const firstTime = (await getAllAttempts()).length === 0;
   const words = text.paragraphs.reduce((n, p) => n + p.filter((t) => !("p" in t)).length, 0);
 
   render("reader", {
-    left: `<span class="bar-eyebrow">${entry.level} · <span lang="uk">${escapeHtml(entry.tags[0] ?? "")}</span></span>`,
+    left: crumb(entry, tag),
     right: `<button class="pill-btn" id="pause">${ICON.pause}<span>Pause</span></button>`,
     body: `
       <div id="reading">
@@ -195,19 +226,19 @@ async function showReader(entry) {
     const meta = { sec: reader.elapsedSec(), clicks: reader.clickCount(), words: reader.wordCount() };
     reader.stop();
     meta.isFirstAttempt = !(await hasAttempt(entry.id));
-    showQuiz(entry, text, meta);
+    showQuiz(entry, text, meta, tag);
   });
 }
 
 // ---------- Kontrolle ----------
 
-function showQuiz(entry, text, meta) {
+function showQuiz(entry, text, meta, tag) {
   const total = text.questions.length;
   render("quiz", {
-    left: `<span class="bar-eyebrow">${entry.level} · <span lang="uk">${escapeHtml(entry.tags[0] ?? "")}</span></span>`,
+    left: crumb(entry, tag),
     body: `
       <header class="page-head">
-        <p class="eyebrow" lang="uk">${escapeHtml(text.title)}</p>
+        <p class="kicker" lang="uk">${escapeHtml(text.title)}</p>
         <h1 class="page-title">Kontrolle</h1>
         <p class="page-sub">${total} Fragen zum Text. Die erste Auswahl zählt.</p>
       </header>
@@ -252,15 +283,17 @@ function showQuiz(entry, text, meta) {
 
 function showResult(entry, m) {
   const pace = Math.round((m.sec / Math.max(m.words, 1)) * 100);
+  const wpm = m.sec > 0 ? Math.round((m.words / m.sec) * 60) : 0;
   render("result", {
     body: `
       <div class="result">
-        <p class="eyebrow" lang="uk">${escapeHtml(entry.title)}</p>
+        <p class="kicker" lang="uk">${escapeHtml(entry.title)}</p>
         <p class="score">${m.correct}<small>/ ${m.total}</small></p>
         <p class="score-caption">${m.correct === m.total ? "Alles richtig." : "richtig beantwortet"}</p>
         <div class="group">
           <div class="row kv"><span class="row-main"><span class="row-title">Lesezeit</span></span><span class="row-trail">${formatDuration(m.sec)}</span></div>
-          <div class="row kv"><span class="row-main"><span class="row-title">Tempo</span></span><span class="row-trail">${pace} s / 100 Wörter</span></div>
+          <div class="row kv"><span class="row-main"><span class="row-title">Tempo</span></span><span class="row-trail">${wpm} Wörter / min</span></div>
+          <div class="row kv"><span class="row-main"><span class="row-title">Pace</span></span><span class="row-trail">${pace} s / 100 Wörter</span></div>
           <div class="row kv"><span class="row-main"><span class="row-title">Nachgeschlagen</span></span><span class="row-trail">${plural(m.clicks, "Wort", "Wörter")}</span></div>
         </div>
         ${m.isFirstAttempt ? "" : `<p class="note">Wiederholung – fließt nicht in die Statistik ein.</p>`}
@@ -412,7 +445,7 @@ function confirmDialog({ title, text, onYes }) {
 function toast(message, action) {
   document.querySelector(".toast")?.remove();
   const el = document.createElement("div");
-  el.className = "toast";
+  el.className = action ? "toast has-action" : "toast";
   el.setAttribute("role", "status");
   el.innerHTML = `<span>${escapeHtml(message)}</span>${action ? `<button>${escapeHtml(action.label)}</button>` : ""}`;
   document.body.appendChild(el);

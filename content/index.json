@@ -1,7 +1,8 @@
 {
-  "version": 1,
+  "version": 2,
+  "contentHash": "e379f30ae0afe4ad",
   "texts": [
-    { "id": "a1-0001", "level": "A1", "tags": ["Сім'я"], "title": "Моя сім'я", "file": "A1/a1-0001.json" },
-    { "id": "a1-0002", "level": "A1", "tags": ["Розпорядок дня"], "title": "Мій день", "file": "A1/a1-0002.json" }
+    { "id": "a1-0001", "level": "A1", "tags": ["Familie"], "title": "Моя сім'я", "file": "A1/a1-0001.json" },
+    { "id": "a1-0002", "level": "A1", "tags": ["Tagesablauf"], "title": "Мій день", "file": "A1/a1-0002.json" }
   ]
 }

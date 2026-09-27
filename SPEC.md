@@ -5,7 +5,7 @@
 - Kein Build-Schritt: Vanilla HTML/CSS/JS (ES-Module), keine Frameworks, keine externen Libraries. Diagramme als eigenes SVG.
 - Vollständig offline nach erstem Laden (Service Worker). Netz nur für Updates und Sync.
 - Zielgeräte: iPhone (Safari, Home-Bildschirm) und Laptop (Browser).
-- UI: minimalistisch, modern, edel, ausschließlich hell. Serifenschrift (Literata) für ukrainischen Text, Sans-Serif (Systemschrift, Fallback Inter) für die Oberfläche; Schriften liegen lokal unter `/fonts/`. Große Tippflächen.
+- UI: minimalistisch, modern, edel. Neutrale Farben ohne Farbstich, Hell- und Dunkelmodus nach Systemeinstellung. Serifenschrift (Literata) für ukrainischen Text und Titel, Sans-Serif (Systemschrift, Fallback Inter) für Oberfläche und Zahlen; Schriften liegen lokal unter `/fonts/`. Große Tippflächen.
 
 ## 2. Repo-Struktur
 ```
@@ -25,6 +25,8 @@
 /content/A1/a1-0001.json …
 /fonts/             Literata, Inter (woff2, OFL)
 /tools/validate.mjs Prüfskript für Content (Node)
+/tools/build-index.mjs erzeugt content/index.json aus den Textdateien
+/docs/TEXT-VORLAGE.md Vorlage zum Erzeugen neuer Texte in einem normalen Chat
 /SPEC.md
 ```
 
@@ -39,7 +41,8 @@
   ]
 }
 ```
-- `version` wird bei jeder Content-Änderung erhöht (Cache-Invalidierung).
+- Die Datei wird nicht von Hand gepflegt, sondern mit `node tools/build-index.mjs` aus den Textdateien erzeugt. Das Skript speichert eine Prüfsumme (`contentHash`) und erhöht `version` automatisch bei jeder Content-Änderung (Cache-Invalidierung).
+- `tags` sind deutsche Themenbegriffe.
 - `level` ∈ A1, A2, B1, B2, C1, C2.
 
 ### 3.2 Textdatei
@@ -99,12 +102,12 @@ Das Skript prüft vor jedem Commit:
 - `version` wurde erhöht.
 
 ## 4. Verhalten Funktion 1 (Text)
-- **Start:** Stufenwahl (A1–C2), dann Themen-Chips aus den verfügbaren, noch nicht bearbeiteten Texten dieser Stufe. Der Schalter „Bereits bearbeitete“ wechselt die Auswahl auf bearbeitete Texte. Die App wählt innerhalb des Themas den nächsten Text nach ID.
-- **Lesen:** Ein Tipp auf ein Wort blendet darüber ein Overlay ein mit Betonungsform, Bedeutung, Wortart und Morphologie-Kurzform (z. B. „Subst · f · Sg · Nom“). Ein erneuter Tipp schließt es. Mehrere Overlays gleichzeitig sind erlaubt.
+- **Start:** Die erste Seite zeigt nur die Funktionswahl (Text, Frage-Antwort). Nach „Text“ folgt die Stufenwahl (A1–C2; Stufen ohne Texte sind sichtbar, aber ausgegraut), dann die Themen-Chips. Dort erscheinen nur verfügbare Themen, jeweils mit der Anzahl der Texte. Der Schalter „Offen / Bereits bearbeitet“ wechselt die Auswahl auf bearbeitete Texte. Die App wählt innerhalb des Themas den nächsten Text nach ID.
+- **Lesen:** Ein Tipp auf ein Wort blendet darüber ein Overlay ein mit Betonungsform, Bedeutung, Wortart und Morphologie-Kurzform (z. B. „Subst · f · Sg · Nom“). Das Overlay hat unten eine geschwungene Spitze (wie die Mitte von „{“), die auf das Wort zeigt. Es ist immer nur ein Overlay offen: Ein erneuter Tipp auf das Wort, ein Tipp auf ein anderes Wort oder irgendwo sonst hin schließt es. Nachgeschlagene Wörter bleiben dezent unterstrichen.
 - **Timer:** Er startet beim Anzeigen des Textes und stoppt bei „Kontrolle“. Er pausiert, solange die App im Hintergrund ist (`visibilitychange`).
 - **Kein Abbruch:** Lesen und Kontrolle können nicht abgebrochen werden. Möglich ist nur das Pausieren des Lesens: Der Text wird ausgeblendet, der Timer steht. Wechselt die App in den Hintergrund, pausiert sie automatisch.
 - **Klickzählung:** Gezählt wird die Anzahl *unterschiedlicher* Wörter bzw. Einheiten, die mindestens einmal geöffnet wurden. Erneutes Öffnen desselben Wortes zählt nicht. Klicks in den Fragen zählen separat und fließen nicht in die Statistik ein.
-- **Kontrolle:** Alle 5 Fragen stehen auf einer Seite, jeweils die Frage und darunter die 4 Antworten im 2×2-Raster (A–D). Die erste Auswahl zählt: Die richtige Antwort wird grün, eine falsch gewählte rot markiert (Rand kräftiger als Hintergrund). Die Auswertung (Zeit, Klicks, x/5) ist erst möglich, wenn alle Fragen beantwortet sind.
+- **Kontrolle:** Alle 5 Fragen stehen auf einer Seite, jeweils die Frage und darunter die 4 Antworten im 2×2-Raster (A–D). Die erste Auswahl zählt: Die richtige Antwort wird grün, eine falsch gewählte rot markiert (Rand kräftiger als Hintergrund). Die Auswertung ist erst möglich, wenn alle Fragen beantwortet sind. Sie zeigt x/5, Lesezeit, Tempo (Wörter pro Minute), Pace (Sekunden pro 100 Wörter) und die Zahl nachgeschlagener Wörter.
 - **Wiederholungen:** Erneute Bearbeitungen werden durchgeführt und angezeigt, aber nicht in die Statistik geschrieben.
 
 ## 5. Statistik
@@ -140,7 +143,8 @@ Das Skript prüft vor jedem Commit:
 - Texte liegen in einem eigenen Cache und werden neu geladen, sobald sich `version` in `index.json` ändert.
 
 ## 9. Ausgegraute Elemente (sichtbar, deaktiviert)
-- Funktion 2 „Frage-Antwort“ im Hauptmenü.
+- Funktion 2 „Frage-Antwort“ auf der Startseite.
+- Stufen ohne Texte in der Stufenwahl.
 - Alle weiteren Knöpfe, deren Funktion beschrieben, aber noch nicht umgesetzt ist.
 
 ## 10. Offen (separat zu klären)

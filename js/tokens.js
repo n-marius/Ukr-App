@@ -11,14 +11,14 @@ export function renderTokenStream(parent, tokens, onWordClick) {
     }
     if (isPunct) {
       // Satzzeichen dürfen keine Zeile beginnen (z. B. Gedankenstrich)
-      parent.appendChild(document.createTextNode(tok.p.replace(/^\s+/, "\u00a0")));
+      parent.appendChild(document.createTextNode(tok.p.replace(/^\s+/, " ")));
     } else {
       const span = document.createElement("span");
       span.className = "token";
       span.textContent = tok.t;
       if (tok.u) span.dataset.unit = tok.u;
       if (onWordClick) span.addEventListener("click", (e) => {
-        if (e.target !== span) return; // Tipp ins Popover selbst
+        if (e.target !== span) return; // Tipp ins Fenster selbst: schließt über den Dokument-Handler
         onWordClick(span, tok);
       });
       parent.appendChild(span);
@@ -27,38 +27,50 @@ export function renderTokenStream(parent, tokens, onWordClick) {
   });
 }
 
-let zIndex = 20;
+// Es ist immer höchstens ein Wortfenster offen.
+let open = null; // { pop, group }
 
-// Öffnet bzw. schließt das Popover eines Wortes (oder einer Mehrwort-Einheit).
+export function closePopover() {
+  if (!open) return;
+  open.pop.remove();
+  open.group.forEach((s) => {
+    s.classList.remove("is-open");
+    s.classList.add("is-seen");
+  });
+  open = null;
+}
+
+document.addEventListener("click", (e) => {
+  if (open && !open.group.some((s) => s === e.target)) closePopover();
+}, true);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePopover(); });
+
+// Öffnet das Fenster eines Wortes (oder einer Mehrwort-Einheit); erneuter Tipp schließt es.
 export function togglePopover(span, info, group = [span]) {
-  const existing = group.map((s) => s.querySelector(":scope > .pop")).find(Boolean);
-  if (existing) {
-    existing.remove();
-    group.forEach((s) => {
-      s.classList.remove("is-open");
-      s.classList.add("is-seen");
-    });
-    return;
-  }
+  const wasThis = open && open.group.includes(span);
+  closePopover();
+  if (wasThis) return;
 
   const pop = document.createElement("span");
   pop.className = "pop";
   pop.setAttribute("role", "tooltip");
-  pop.style.zIndex = String(++zIndex);
   pop.innerHTML = `
     <span class="pop-form" lang="uk">${escapeHtml(info.a ?? info.t ?? "")}</span>
     <span class="pop-gloss">${escapeHtml(info.g ?? "")}</span>
     <span class="pop-gram">${escapeHtml(formatMorph(info.pos, info.m))}</span>
-  `;
-  pop.addEventListener("click", () => togglePopover(span, info, group));
+    <svg class="pop-tip" viewBox="0 0 44 14" aria-hidden="true">
+      <path class="pop-tip-fill" d="M0 -1H44V0C32 0 26 1.5 22 14C18 1.5 12 0 0 0Z"/>
+      <path class="pop-tip-line" d="M0 0.5C12 0.5 18 2 22 13.5C26 2 32 0.5 44 0.5"/>
+    </svg>`;
   span.appendChild(pop);
   group.forEach((s) => s.classList.add("is-open"));
+  open = { pop, group };
   place(span, pop);
 }
 
 function place(span, pop) {
   const EDGE = 12;
-  const GAP = 10;
+  const GAP = 17;
   const s = span.getBoundingClientRect();
   const p = pop.getBoundingClientRect();
   const vw = document.documentElement.clientWidth;
@@ -72,7 +84,7 @@ function place(span, pop) {
   pop.style.left = `${left - s.left}px`;
   pop.style.top = above ? `${-p.height - GAP}px` : `${s.height + GAP}px`;
   pop.classList.add(above ? "is-above" : "is-below");
-  pop.style.setProperty("--arrow-x", `${Math.min(Math.max(center - left, 18), p.width - 18)}px`);
+  pop.style.setProperty("--tip-x", `${Math.min(Math.max(center - left, 30), p.width - 30)}px`);
 }
 
 export function formatMorph(pos, m) {
