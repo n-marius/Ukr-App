@@ -3,11 +3,18 @@ import { renderQuiz } from "./quiz.js";
 import { renderStats } from "./stats.js";
 import { addAttempt, getAllAttempts, hasAttempt, getSetting, setSetting, detectDevice, exportData, importData, clearAttempts } from "./store.js";
 import { getSyncConfig, setSyncConfig, sync, resetRemote } from "./sync.js";
+import { escapeHtml } from "./tokens.js";
 
 const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
 const root = document.getElementById("app");
 let index = null;
 let currentReader = null;
+
+const ICONS = {
+  back: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>`,
+  stats: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>`,
+  settings: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+};
 
 async function loadIndex() {
   const res = await fetch("content/index.json");
@@ -23,8 +30,8 @@ async function showHome() {
   screen(`
     <header class="topbar">
       <h1>Українська</h1>
-      <button id="btn-stats" class="icon-btn" aria-label="Statistik">📊</button>
-      <button id="btn-settings" class="icon-btn" aria-label="Einstellungen">⚙️</button>
+      <button id="btn-stats" class="icon-btn" aria-label="Statistik">${ICONS.stats}</button>
+      <button id="btn-settings" class="icon-btn" aria-label="Einstellungen">${ICONS.settings}</button>
     </header>
     <main>
       <h2>Stufe wählen</h2>
@@ -57,13 +64,16 @@ async function showTopics(level) {
     const tags = [...new Set(relevant.flatMap((t) => t.tags))];
     screen(`
       <header class="topbar">
-        <button id="btn-back" class="icon-btn" aria-label="Zurück">←</button>
+        <button id="btn-back" class="icon-btn" aria-label="Zurück">${ICONS.back}</button>
         <h1>${level}</h1>
       </header>
       <main>
         <label class="toggle">
-          <input type="checkbox" id="toggle-done" ${showDone ? "checked" : ""} />
-          Bereits bearbeitete
+          <span>Bereits bearbeitete</span>
+          <span class="switch">
+            <input type="checkbox" id="toggle-done" ${showDone ? "checked" : ""} />
+            <span class="switch-track"></span>
+          </span>
         </label>
         <div class="chip-grid">
           ${tags.length
@@ -97,7 +107,7 @@ async function showReader(entry) {
 
   screen(`
     <header class="topbar">
-      <button id="btn-back" class="icon-btn" aria-label="Zurück">←</button>
+      <button id="btn-back" class="icon-btn" aria-label="Zurück">${ICONS.back}</button>
       <h1>${escapeHtml(entry.title)}</h1>
     </header>
     <main id="reader-main"></main>
@@ -126,10 +136,19 @@ async function showReader(entry) {
 function showQuizScreen(text, entry, meta) {
   screen(`
     <header class="topbar">
+      <button id="btn-back" class="icon-btn" aria-label="Abbrechen">${ICONS.back}</button>
       <h1>${escapeHtml(entry.title)} – Kontrolle</h1>
     </header>
     <main id="quiz-main"></main>
   `);
+  document.getElementById("btn-back").addEventListener("click", () => {
+    showConfirm(
+      "Kontrolle abbrechen?",
+      "Deine Antworten in dieser Kontrolle gehen verloren. Der Text bleibt als unbearbeitet erhalten.",
+      showHome,
+      "Verlassen"
+    );
+  });
   const main = document.getElementById("quiz-main");
   renderQuiz(main, text, async ({ correct }) => {
     if (meta.isFirstAttempt) {
@@ -152,11 +171,16 @@ function showQuizScreen(text, entry, meta) {
 
 function showResult(entry, meta) {
   screen(`
-    <header class="topbar"><h1>Ergebnis</h1></header>
+    <header class="topbar"><h1>${escapeHtml(entry.title)}</h1></header>
     <main class="result">
-      <p>Zeit: <strong>${meta.sec}s</strong></p>
-      <p>Klicks: <strong>${meta.clicks}</strong></p>
-      <p>Richtige Antworten: <strong>${meta.correct} / 5</strong></p>
+      <div class="result-score">
+        <span class="result-score-num">${meta.correct}</span>
+        <span class="result-score-den">/ 5 richtig</span>
+      </div>
+      <div class="result-details">
+        <div class="result-stat"><span>Zeit</span><strong>${meta.sec}s</strong></div>
+        <div class="result-stat"><span>Klicks</span><strong>${meta.clicks}</strong></div>
+      </div>
       ${!meta.isFirstAttempt ? `<p class="hint">Wiederholung – nicht in Statistik gespeichert.</p>` : ""}
       <button id="btn-home" class="primary-btn">Zur Startseite</button>
     </main>
@@ -170,7 +194,7 @@ async function showStats() {
   function render() {
     screen(`
       <header class="topbar">
-        <button id="btn-back" class="icon-btn" aria-label="Zurück">←</button>
+        <button id="btn-back" class="icon-btn" aria-label="Zurück">${ICONS.back}</button>
         <h1>Statistik</h1>
       </header>
       <main>
@@ -196,7 +220,7 @@ async function showSettings() {
   const cfg = await getSyncConfig();
   screen(`
     <header class="topbar">
-      <button id="btn-back" class="icon-btn" aria-label="Zurück">←</button>
+      <button id="btn-back" class="icon-btn" aria-label="Zurück">${ICONS.back}</button>
       <h1>Einstellungen</h1>
     </header>
     <main class="settings">
@@ -213,7 +237,8 @@ async function showSettings() {
 
       <h2>Daten</h2>
       <button id="btn-export" class="secondary-btn">Export als JSON</button>
-      <label class="file-label">Import als JSON
+      <label class="file-label secondary-btn">
+        <span>Import als JSON</span>
         <input id="input-import" type="file" accept="application/json" />
       </label>
       <button id="btn-reset" class="danger-btn">Statistik zurücksetzen</button>
@@ -254,7 +279,7 @@ async function showSettings() {
   });
 }
 
-function showConfirm(title, message, onConfirm) {
+function showConfirm(title, message, onConfirm, confirmLabel = "Löschen") {
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
   overlay.innerHTML = `
@@ -263,7 +288,7 @@ function showConfirm(title, message, onConfirm) {
       <p>${escapeHtml(message)}</p>
       <div class="modal-actions">
         <button id="modal-cancel" class="secondary-btn">Abbrechen</button>
-        <button id="modal-confirm" class="danger-btn">Löschen</button>
+        <button id="modal-confirm" class="danger-btn">${escapeHtml(confirmLabel)}</button>
       </div>
     </div>
   `;
@@ -273,16 +298,6 @@ function showConfirm(title, message, onConfirm) {
     overlay.remove();
     await onConfirm();
   });
-}
-
-function escapeHtml(s) {
-  return String(s ?? "").replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  }[c]));
 }
 
 async function init() {
