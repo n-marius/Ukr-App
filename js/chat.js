@@ -5,7 +5,7 @@ import { renderTokenStream, togglePopover, closePopover } from "./tokens.js";
 
 const SEND_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>`;
 
-export function renderChat(container, chat) {
+export function renderChat(container, chat, { onEnd } = {}) {
   container.innerHTML = "";
   showNode(chat.start);
 
@@ -80,6 +80,7 @@ export function renderChat(container, chat) {
     el.textContent = "Gespräch beendet";
     container.appendChild(el);
     scrollTo(el);
+    onEnd?.();
   }
 
   function scrollTo(el) {

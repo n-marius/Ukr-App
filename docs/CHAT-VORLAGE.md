@@ -44,8 +44,8 @@ Du erstellst ein simuliertes ukrainisches Gespräch für eine Lern-App (Muttersp
   "nodes": {
     "n1": {
       "bot": [
-        { "t": "Доброго", "a": "До́брого", "l": "добрий", "g": "guten", "pos": "Adj", "m": { "gen": "m", "num": "Sg", "case": "Gen", "deg": "Pos" } },
-        { "t": "дня", "a": "дня", "l": "день", "g": "Tag", "pos": "Subst", "m": { "gen": "m", "num": "Sg", "case": "Gen" } },
+        { "t": "Добрий", "a": "До́брий", "l": "добрий", "g": "guten", "pos": "Adj", "m": { "gen": "m", "num": "Sg", "case": "Nom", "deg": "Pos" } },
+        { "t": "день", "a": "день", "l": "день", "g": "Tag", "pos": "Subst", "m": { "gen": "m", "num": "Sg", "case": "Nom" } },
         { "p": "! " },
         { "t": "Що", "a": "Що", "l": "що", "g": "was", "pos": "Pron", "m": { "case": "Akk" } },
         { "t": "хочеш", "a": "хо́чеш", "l": "хотіти", "g": "willst", "pos": "Verb", "m": { "asp": "ipf", "tense": "Präs", "pers": "2", "num": "Sg" } },
@@ -97,8 +97,8 @@ Du erstellst ein simuliertes ukrainisches Gespräch für eine Lern-App (Muttersp
     },
     "n2a": {
       "bot": [
-        { "t": "З", "a": "З", "l": "з", "g": "mit", "pos": "Präp" },
-        { "t": "молоком", "a": "молоко́м", "l": "молоко", "g": "Milch", "pos": "Subst", "m": { "gen": "n", "num": "Sg", "case": "Inst" } },
+        { "t": "Молоко", "a": "Молоко́", "l": "молоко", "g": "Milch", "pos": "Subst", "m": { "gen": "n", "num": "Sg", "case": "Nom" } },
+        { "t": "теж", "a": "теж", "l": "теж", "g": "auch", "pos": "Part" },
         { "p": "?" }
       ],
       "answers": [
@@ -116,8 +116,7 @@ Du erstellst ein simuliertes ukrainisches Gespräch für eine Lern-App (Muttersp
         { "t": "ваша", "a": "ва́ша", "l": "ваш", "g": "Ihr", "pos": "Pron", "m": { "gen": "f", "num": "Sg", "case": "Nom" } },
         { "t": "кава", "a": "ка́ва", "l": "кава", "g": "Kaffee", "pos": "Subst", "m": { "gen": "f", "num": "Sg", "case": "Nom" } },
         { "p": ". " },
-        { "t": "Гарного", "a": "Га́рного", "l": "гарний", "g": "schönen", "pos": "Adj", "m": { "gen": "m", "num": "Sg", "case": "Gen", "deg": "Pos" } },
-        { "t": "дня", "a": "дня", "l": "день", "g": "Tag", "pos": "Subst", "m": { "gen": "m", "num": "Sg", "case": "Gen" } },
+        { "t": "Смачна", "a": "Смачна́", "l": "смачний", "g": "lecker", "pos": "Adj", "m": { "gen": "f", "num": "Sg", "case": "Nom", "deg": "Pos" } },
         { "p": "!" }
       ]
     }
@@ -153,11 +152,15 @@ Du erstellst ein simuliertes ukrainisches Gespräch für eine Lern-App (Muttersp
 **Tokens** (identisch zu Lesetexten)
 - Jedes Wort ein eigenes Token, Satzzeichen als `{ "p": "." }` (Leerzeichen nach Satzzeichen bei Bedarf im `p`-Wert selbst, z. B. `{ "p": "! " }`, da nach einer Bot-Nachricht innerhalb eines mehrsätzigen `bot`-Arrays kein automatischer Zeilenumbruch erfolgt).
 - `t` Wortform, `a` mit Betonungszeichen (U+0301 nach dem betonten Vokal, einsilbige Wörter ohne), `l` Lemma, `g` deutsche Bedeutung im Kontext, `pos` (Subst, Verb, Adj, Adv, Pron, Num, Präp, Konj, Part, Interj, Wendung), `m` Morphologie (gen, num, case, asp, tense, pers, mood, inf, deg – wie bei Lesetexten).
+- Jedes finite Verb trägt `tense` (wird in der Infobox angezeigt). Ohne `tense` nur Infinitive (`inf`) und Imperative (`mood: Imp`).
+- Präpositionen, Konjunktionen, Partikeln und Adverbien haben meist kein `m`.
 - Mehrwort-Einheiten wie bei Lesetexten über `"u": "u1"` plus Eintrag in `units` (gilt für das ganze Gespräch, `bot` wie `answers`).
 - Apostroph als ASCII `'`.
 
 **Inhaltliche Qualität**
 - Die unpassende Antwort ist thematisch daneben, nicht grammatisch fehlerhaft und nicht offensichtlich albern – sie soll kurz zum Nachdenken bringen, aber eindeutig falsch sein.
+- Nicht zu leicht: Die unpassende Antwort darf nicht allein an einem fremden Schlüsselwort erkennbar sein; sie greift möglichst Wörter oder Themen aus dem Umfeld auf, passt aber nicht zur konkreten Bot-Nachricht.
+- Nicht zu schwer: Bot-Nachrichten und alle Antworten halten die Grammatik- und Wortschatzgrenzen der Stufe ein; das Verstehen der Bot-Nachricht selbst darf keine Hürde sein.
 - Die drei passenden Antworten unterscheiden sich inhaltlich merklich (nicht nur in der Wortwahl), damit unterschiedliche Folgeknoten Sinn ergeben.
 - Zusammenführen, sobald es inhaltlich plausibel ist (z. B. nach „ja“/„nein“/„ein bisschen“ geht es unabhängig von der Wahl gleich weiter).
 - Am Ende steht ein passender Gesprächsabschluss (Verabschiedung, Dank, kurzes Fazit).
@@ -165,11 +168,15 @@ Du erstellst ein simuliertes ukrainisches Gespräch für eine Lern-App (Muttersp
 ## Sprachliche Regeln
 
 **Sprache**
-- Ausschließlich korrektes, standardsprachliches Ukrainisch. Keine Russismen, kein Surschyk.
+- Ausschließlich korrektes, standardsprachliches Ukrainisch. Keine Russismen, kein Surschyk, keine russischen Lehnformen (z. B. nicht „кушать“, „ладно“, „канєшно“, „получається“ im Sinne von „es klappt“).
 - Betonungen sorgfältig prüfen; bei Unsicherheit im Chat darauf hinweisen.
 
 **Stufen** (jede Stufe umfasst alles aus den vorherigen)
-- **A1:** Nur Präsens, kein Imperativ. Nur Nominativ und Akkusativ (auch nach Präpositionen). Verben/Personalpronomen nur 1.–3. Person Singular. Infinitive erlaubt (z. B. nach хотіти, любити, треба). Adjektive/Possessiv-/Fragepronomen nur Nom/Akk. Zahlen 0–99 mit den üblichen Einschränkungen. Nur grundlegender Wortschatz, einfache Sätze; übliche Höflichkeitsformeln sind zulässig.
+- **A1:** Nur Präsens, kein Imperativ (auch nicht „бувай“). Nur Nominativ und Akkusativ (auch nach Präpositionen). Verben/Personalpronomen nur 1.–3. Person Singular, kein Plural; Pluralformen von Substantiven und Adjektiven im Nom/Akk sind zulässig. Infinitive erlaubt (z. B. nach хотіти, любити, треба). Adjektive/Possessiv-/Fragepronomen nur Nom/Akk. Nur grundlegender Wortschatz, einfache Sätze.
+  - Zahlen 0–99; mit Substantiv nur 1 (+ Singular) oder Endziffer 2–4 außer 12–14 (+ Nom/Akk Plural, z. B. „сорок дві гривні“). Keine Zahlen, die den Genitiv Plural verlangen.
+  - Keine Sie-Anrede (Ви + 2. Person Plural). Förmliche Gespräche (Hotel, Kasse, Arzt) laufen über verblose Sätze („Паспорт, будь ласка.“, „Квиток куди?“), ваш/ваша oder die 1./3. Person; alternativ eine Du-Situation unter Freunden.
+  - Genitiv-Konstruktionen meiden: kein „у мене є“ (stattdessen „я маю“), kein „немає“, keine verneinten Objekte, keine Uhrzeiten mit Lokativ, kein „з“ + Instrumental.
+  - Feste Formeln mit anderem Fall oder Imperativform („будь ласка“, „до побачення“) nur als Unit mit `note`; sonst Nominativ-Formeln wählen („Добрий день“ statt „Доброго дня“).
 - **A2:** Alle sieben Fälle einfach verwendet. Verben auch im Plural. Aspekte in einfachen Paaren. Präteritum/Futur-Grundlagen. Imperativ. Einfache якщо-Sätze. Zahlen bis 9 999.
 - **B1:** Komparativ/Superlativ. Alle Tempora/Aspekte sicher. Konjunktiv mit „би“. Nebensätze mit який, щоб, хоча, тому що; indirekte Rede.
 - **B2:** Partizipien, Adverbialpartizipien, Passiv auf -но/-то. Komplexere Sätze, abstraktere Themen.
@@ -181,7 +188,8 @@ Du erstellst ein simuliertes ukrainisches Gespräch für eine Lern-App (Muttersp
 - Jeder Knoten ohne `answers` ist wirklich ein sinnvolles Ende?
 - Jeder Knoten mit `answers` hat genau 4 Einträge, genau einer mit `ok: false` (ohne `next`), drei mit `ok: true` (mit `next`)?
 - Jedes Wort-Token hat `l`, `g`, `pos` oder ein `u`? Jede Unit in `units` auch verwendet?
-- Grammatikgrenzen der Stufe in `bot` **und** `answers` eingehalten?
+- Grammatikgrenzen der Stufe in `bot` **und** `answers` eingehalten (A1: kein Imperativ, kein Plural bei Verben/Pronomen, nur Nom/Akk, keine Sie-Anrede)?
+- Jedes finite Verb hat `tense`?
 - 10–16 Knoten, mindestens eine Zusammenführung, realistischer Gesprächsbogen?
 - Genau ein Tag, `titleDe` vorhanden?
 - Gültiges JSON?

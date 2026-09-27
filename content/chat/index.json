@@ -1,7 +1,10 @@
 {
-  "version": 3,
-  "contentHash": "2fdf8ea300bc911b",
+  "version": 4,
+  "contentHash": "50a33c0d6dca2157",
   "chats": [
-    { "id": "a1-0001", "level": "A1", "tags": ["Restaurant"], "titleDe": "Kaffee bestellen", "title": "У кафе", "file": "A1/a1-0001.json" }
+    { "id": "a1-0001", "level": "A1", "tags": ["Restaurant"], "titleDe": "Kaffee bestellen", "title": "У кафе", "file": "A1/a1-0001.json" },
+    { "id": "a1-0002", "level": "A1", "tags": ["Hotel"], "titleDe": "Einchecken im Hotel", "title": "У готелі", "file": "A1/a1-0002.json" },
+    { "id": "a1-0003", "level": "A1", "tags": ["Supermarkt"], "titleDe": "Einkauf fürs Abendessen", "title": "Покупки на вечерю", "file": "A1/a1-0003.json" },
+    { "id": "a1-0004", "level": "A1", "tags": ["Verkehr"], "titleDe": "Fahrkarte am Bahnhof", "title": "Квиток на потяг", "file": "A1/a1-0004.json" }
   ]
 }
