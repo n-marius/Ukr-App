@@ -1,4 +1,6 @@
 // Kontrolle: 5 Fragen, je 4 gemischte Optionen, sofortiges Feedback, Klicks separat gezählt.
+import { renderTokenStream, showTokenOverlay } from "./tokens.js";
+
 export function renderQuiz(container, text, onFinished) {
   container.innerHTML = "";
   let quizClicks = 0;
@@ -18,21 +20,10 @@ export function renderQuiz(container, text, onFinished) {
 
     const prompt = document.createElement("p");
     prompt.className = "quiz-prompt reader-text";
-    for (const tok of q.q) {
-      if ("p" in tok) {
-        prompt.appendChild(document.createTextNode(tok.p));
-        continue;
-      }
-      const span = document.createElement("span");
-      span.className = "token";
-      span.textContent = tok.t;
-      span.addEventListener("click", () => {
-        quizClicks++;
-        toggleQuestionOverlay(span, tok);
-      });
-      prompt.appendChild(span);
-      prompt.appendChild(document.createTextNode(" "));
-    }
+    renderTokenStream(prompt, q.q, (span, tok) => {
+      quizClicks++;
+      showTokenOverlay(span, tok);
+    });
     wrap.appendChild(prompt);
 
     const counter = document.createElement("p");
@@ -71,23 +62,6 @@ export function renderQuiz(container, text, onFinished) {
     container.appendChild(wrap);
   }
 
-  function toggleQuestionOverlay(span, tok) {
-    const existing = span.querySelector(".token-overlay");
-    if (existing) {
-      existing.remove();
-      return;
-    }
-    const morph = [tok.pos, ...Object.values(tok.m ?? {})].filter(Boolean).join(" · ");
-    const overlay = document.createElement("span");
-    overlay.className = "token-overlay";
-    overlay.innerHTML = `
-      <span class="ov-accent">${escapeHtml(tok.t)}</span>
-      <span class="ov-gloss">${escapeHtml(tok.g ?? "")}</span>
-      <span class="ov-morph">${escapeHtml(morph)}</span>
-    `;
-    span.appendChild(overlay);
-  }
-
   renderQuestion();
 }
 
@@ -98,14 +72,4 @@ function shuffle(arr) {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  }[c]));
 }
