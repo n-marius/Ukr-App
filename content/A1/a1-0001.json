@@ -1,0 +1,96 @@
+{
+  "id": "a1-0001",
+  "level": "A1",
+  "tags": ["Сім'я"],
+  "title": "Моя сім'я",
+  "paragraphs": [
+    [
+      { "t": "Мене", "a": "Мене́", "l": "я", "g": "mich", "pos": "Pron", "m": { "case": "Akk" } },
+      { "t": "звати", "a": "зва́ти", "l": "звати", "g": "heißen", "pos": "Verb", "m": { "inf": true } },
+      { "t": "Оксана", "a": "Окса́на", "l": "Оксана", "g": "Oxana", "pos": "Subst", "m": { "gen": "f", "num": "Sg", "case": "Nom" } },
+      { "p": "." },
+      { "t": "Моя", "a": "Моя́", "l": "мій", "g": "meine", "pos": "Pron", "m": { "gen": "f", "num": "Sg", "case": "Nom" } },
+      { "t": "сім'я", "a": "сі́м'я", "l": "сім'я", "g": "Familie", "pos": "Subst", "m": { "gen": "f", "num": "Sg", "case": "Nom" } },
+      { "t": "невелика", "a": "невели́ка", "l": "невеликий", "g": "nicht groß, klein", "pos": "Adj", "m": { "gen": "f", "num": "Sg", "case": "Nom", "deg": "Pos" } },
+      { "p": "." },
+      { "t": "Мама", "a": "Ма́ма", "l": "мама", "g": "Mama", "pos": "Subst", "m": { "gen": "f", "num": "Sg", "case": "Nom" } },
+      { "p": ", " },
+      { "t": "тато", "a": "та́то", "l": "тато", "g": "Papa", "pos": "Subst", "m": { "gen": "m", "num": "Sg", "case": "Nom" } },
+      { "t": "і", "a": "і", "l": "і", "g": "und", "pos": "Konj" },
+      { "t": "брат", "a": "брат", "l": "брат", "g": "Bruder", "pos": "Subst", "m": { "gen": "m", "num": "Sg", "case": "Nom" } },
+      { "t": "живуть", "a": "живу́ть", "l": "жити", "g": "leben (sie)", "pos": "Verb", "m": { "asp": "ipf", "tense": "Präs", "pers": "3", "num": "Pl" } },
+      { "t": "у", "a": "у", "l": "у", "g": "in", "pos": "Präp" },
+      { "t": "Києві", "a": "Ки́єві", "l": "Київ", "g": "Kiew", "pos": "Subst", "m": { "gen": "m", "num": "Sg", "case": "Lok" } },
+      { "p": "." }
+    ],
+    [
+      { "t": "Тато", "a": "Та́то", "l": "тато", "g": "Papa", "pos": "Subst", "m": { "gen": "m", "num": "Sg", "case": "Nom" } },
+      { "t": "працює", "a": "працю́є", "l": "працювати", "g": "arbeitet", "pos": "Verb", "m": { "asp": "ipf", "tense": "Präs", "pers": "3", "num": "Sg" } },
+      { "t": "лікарем", "a": "лі́карем", "l": "лікар", "g": "als Arzt", "pos": "Subst", "m": { "gen": "m", "num": "Sg", "case": "Inst" } },
+      { "p": "." },
+      { "t": "Мама", "a": "Ма́ма", "l": "мама", "g": "Mama", "pos": "Subst", "m": { "gen": "f", "num": "Sg", "case": "Nom" } },
+      { "p": " — " },
+      { "t": "вчителька", "a": "вчи́телька", "l": "вчителька", "g": "Lehrerin", "pos": "Subst", "m": { "gen": "f", "num": "Sg", "case": "Nom" } },
+      { "p": "." },
+      { "t": "Я", "a": "Я", "l": "я", "g": "ich", "pos": "Pron", "m": { "case": "Nom" } },
+      { "t": "люблю", "a": "люблю́", "l": "любити", "g": "liebe", "pos": "Verb", "m": { "asp": "ipf", "tense": "Präs", "pers": "1", "num": "Sg" } },
+      { "t": "свою", "a": "свою́", "l": "свій", "g": "meine (eigene)", "pos": "Pron", "m": { "gen": "f", "num": "Sg", "case": "Akk" } },
+      { "t": "родину", "a": "роди́ну", "l": "родина", "g": "Familie", "pos": "Subst", "m": { "gen": "f", "num": "Sg", "case": "Akk" } },
+      { "p": "." }
+    ]
+  ],
+  "units": {},
+  "questions": [
+    {
+      "q": [
+        { "t": "Як", "l": "як", "g": "wie", "pos": "Adv" },
+        { "t": "звати", "l": "звати", "g": "heißen", "pos": "Verb", "m": { "inf": true } },
+        { "t": "дівчину", "l": "дівчина", "g": "das Mädchen", "pos": "Subst", "m": { "gen": "f", "num": "Sg", "case": "Akk" } },
+        { "p": "?" }
+      ],
+      "o": ["Оксана", "Марія", "Ірина", "Софія"],
+      "a": 0
+    },
+    {
+      "q": [
+        { "t": "Де", "l": "де", "g": "wo", "pos": "Adv" },
+        { "t": "живе", "l": "жити", "g": "lebt", "pos": "Verb", "m": { "asp": "ipf", "tense": "Präs", "pers": "3", "num": "Sg" } },
+        { "t": "сім'я", "l": "сім'я", "g": "die Familie", "pos": "Subst", "m": { "gen": "f", "num": "Sg", "case": "Nom" } },
+        { "p": "?" }
+      ],
+      "o": ["Київ", "Одеса", "Львів", "Харків"],
+      "a": 0
+    },
+    {
+      "q": [
+        { "t": "Ким", "l": "хто", "g": "als wer", "pos": "Pron", "m": { "case": "Inst" } },
+        { "t": "працює", "l": "працювати", "g": "arbeitet", "pos": "Verb", "m": { "asp": "ipf", "tense": "Präs", "pers": "3", "num": "Sg" } },
+        { "t": "тато", "l": "тато", "g": "der Papa", "pos": "Subst", "m": { "gen": "m", "num": "Sg", "case": "Nom" } },
+        { "p": "?" }
+      ],
+      "o": ["лікар", "вчитель", "водій", "кухар"],
+      "a": 0
+    },
+    {
+      "q": [
+        { "t": "Ким", "l": "хто", "g": "als wer", "pos": "Pron", "m": { "case": "Inst" } },
+        { "t": "працює", "l": "працювати", "g": "arbeitet", "pos": "Verb", "m": { "asp": "ipf", "tense": "Präs", "pers": "3", "num": "Sg" } },
+        { "t": "мама", "l": "мама", "g": "die Mama", "pos": "Subst", "m": { "gen": "f", "num": "Sg", "case": "Nom" } },
+        { "p": "?" }
+      ],
+      "o": ["вчителька", "лікарка", "продавчиня", "медсестра"],
+      "a": 0
+    },
+    {
+      "q": [
+        { "t": "Яка", "l": "який", "g": "was für eine", "pos": "Pron", "m": { "gen": "f", "num": "Sg", "case": "Nom" } },
+        { "t": "сім'я", "l": "сім'я", "g": "die Familie", "pos": "Subst", "m": { "gen": "f", "num": "Sg", "case": "Nom" } },
+        { "t": "у", "l": "у", "g": "bei", "pos": "Präp" },
+        { "t": "Оксани", "l": "Оксана", "g": "Oxana", "pos": "Subst", "m": { "gen": "f", "num": "Sg", "case": "Gen" } },
+        { "p": "?" }
+      ],
+      "o": ["невелика", "велика", "бідна", "багата"],
+      "a": 0
+    }
+  ]
+}
