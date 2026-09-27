@@ -179,6 +179,41 @@ h2 { font-size: 1rem; color: var(--text-muted); font-weight: 600; margin: 4px 0 
   cursor: pointer;
   margin-bottom: 12px;
 }
+.danger-btn {
+  width: 100%;
+  min-height: 50px;
+  border-radius: 12px;
+  border: 1px solid var(--wrong);
+  background: var(--surface);
+  color: var(--wrong);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 24px;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 100;
+}
+.modal {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 20px;
+  max-width: 360px;
+  width: 100%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+.modal h3 { margin: 0 0 8px; }
+.modal p { color: var(--text-muted); margin: 0 0 20px; font-size: 0.95rem; }
+.modal-actions { display: flex; gap: 10px; }
+.modal-actions .secondary-btn, .modal-actions .danger-btn { margin: 0; }
 
 .quiz-prompt { margin-bottom: 20px; }
 .quiz-counter { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 12px; }
@@ -194,8 +229,16 @@ h2 { font-size: 1rem; color: var(--text-muted); font-weight: 600; margin: 4px 0 
   padding: 0 16px;
   text-align: left;
 }
-.quiz-option.correct { border-color: var(--correct); background: color-mix(in srgb, var(--correct) 15%, var(--surface)); }
-.quiz-option.wrong { border-color: var(--wrong); background: color-mix(in srgb, var(--wrong) 15%, var(--surface)); }
+.quiz-option.correct {
+  border-width: 2px;
+  border-color: var(--correct);
+  background: color-mix(in srgb, var(--correct) 15%, var(--surface));
+}
+.quiz-option.wrong {
+  border-width: 2px;
+  border-color: var(--wrong);
+  background: color-mix(in srgb, var(--wrong) 15%, var(--surface));
+}
 
 .result p { font-size: 1.1rem; }
 .result .hint { color: var(--text-muted); font-size: 0.9rem; }

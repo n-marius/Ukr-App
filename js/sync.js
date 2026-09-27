@@ -67,6 +67,15 @@ export async function sync() {
   }
 }
 
+export async function resetRemote() {
+  const { token, gistId } = await getSyncConfig();
+  if (!token || !gistId) return;
+  const body = {
+    files: { "stats.json": { content: JSON.stringify({ v: 1, attempts: [] }, null, 2) } },
+  };
+  await fetch(`${API}/gists/${gistId}`, { method: "PATCH", headers: authHeaders(token), body: JSON.stringify(body) });
+}
+
 function authHeaders(token) {
   return {
     Authorization: `Bearer ${token}`,

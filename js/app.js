@@ -1,8 +1,8 @@
 import { renderReader } from "./reader.js";
 import { renderQuiz } from "./quiz.js";
 import { renderStats } from "./stats.js";
-import { addAttempt, getAllAttempts, hasAttempt, getSetting, setSetting, detectDevice, exportData, importData } from "./store.js";
-import { getSyncConfig, setSyncConfig, sync } from "./sync.js";
+import { addAttempt, getAllAttempts, hasAttempt, getSetting, setSetting, detectDevice, exportData, importData, clearAttempts } from "./store.js";
+import { getSyncConfig, setSyncConfig, sync, resetRemote } from "./sync.js";
 
 const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
 const root = document.getElementById("app");
@@ -216,6 +216,7 @@ async function showSettings() {
       <label class="file-label">Import als JSON
         <input id="input-import" type="file" accept="application/json" />
       </label>
+      <button id="btn-reset" class="danger-btn">Statistik zurücksetzen</button>
     </main>
   `);
   document.getElementById("btn-back").addEventListener("click", showHome);
@@ -239,6 +240,38 @@ async function showSettings() {
     if (!file) return;
     await importData(await file.text());
     showSettings();
+  });
+  document.getElementById("btn-reset").addEventListener("click", () => {
+    showConfirm(
+      "Statistik zurücksetzen?",
+      "Alle gespeicherten Ergebnisse werden unwiderruflich gelöscht. Das kann nicht rückgängig gemacht werden.",
+      async () => {
+        await clearAttempts();
+        await resetRemote();
+        showSettings();
+      }
+    );
+  });
+}
+
+function showConfirm(title, message, onConfirm) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>${escapeHtml(title)}</h3>
+      <p>${escapeHtml(message)}</p>
+      <div class="modal-actions">
+        <button id="modal-cancel" class="secondary-btn">Abbrechen</button>
+        <button id="modal-confirm" class="danger-btn">Löschen</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector("#modal-cancel").addEventListener("click", () => overlay.remove());
+  overlay.querySelector("#modal-confirm").addEventListener("click", async () => {
+    overlay.remove();
+    await onConfirm();
   });
 }
 
