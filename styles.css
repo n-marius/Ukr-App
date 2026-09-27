@@ -565,6 +565,82 @@ button.row:active:not(:disabled), label.row:active { background: var(--surface-2
 .paused-title { margin: 0; font-family: var(--serif); font-size: 28px; font-weight: 540; letter-spacing: -0.015em; }
 .paused-sub { margin: 8px 0 28px; font-size: 15px; color: var(--ink-3); }
 
+/* ---------- Frage-Antwort ---------- */
+
+.bubble {
+  max-width: 82%;
+  margin-bottom: 12px;
+  padding: 11px 15px;
+  border-radius: 16px;
+  font-family: var(--serif);
+  font-size: 18px;
+  line-height: 1.5;
+}
+.bubble p { margin: 0; }
+.bubble-bot {
+  margin-right: auto;
+  border-bottom-left-radius: 4px;
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.bubble-user {
+  margin-left: auto;
+  border-bottom-right-radius: 4px;
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+}
+.bubble-user .token { text-decoration-color: color-mix(in srgb, var(--btn-fg) 55%, transparent); }
+@media (hover: hover) {
+  .bubble-user .token:hover { background: rgba(255, 255, 255, 0.14); }
+}
+
+.answer-list { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 20px; }
+.answer-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px 10px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--line-2);
+  transition: border-color 0.15s ease, background-color 0.15s ease, opacity 0.2s ease;
+}
+.answer-list:not(.is-done) .answer-row:not(.is-wrong):hover { border-color: var(--ink-3); background: var(--hover); }
+.answer-row-text {
+  flex: 1;
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.4;
+}
+.answer-send {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.answer-send svg { width: 17px; height: 17px; }
+.answer-list:not(.is-done) .answer-row:not(.is-wrong):hover .answer-send { background: var(--btn-bg); color: var(--btn-fg); }
+.answer-row.is-wrong { border-color: var(--wrong); background: var(--wrong-soft); }
+.answer-row.is-wrong .answer-send { background: var(--wrong); color: #fff; }
+.answer-row.is-correct { border-color: var(--correct); background: var(--correct-soft); }
+.answer-row.is-correct .answer-send { background: var(--correct); color: #fff; }
+.answer-list.is-done .answer-row:not(.is-correct) { opacity: 0.4; }
+.answer-list.is-done .answer-send { pointer-events: none; }
+
+.chat-end {
+  margin: 4px 0 24px;
+  text-align: center;
+  font-size: 13.5px;
+  font-weight: 560;
+  color: var(--ink-3);
+}
+
 /* ---------- Leiste unten ---------- */
 
 .dock {

@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "contentHash": "2fdf8ea300bc911b",
+  "chats": [
+    { "id": "a1-0001", "level": "A1", "tags": ["Restaurant"], "titleDe": "Kaffee bestellen", "title": "У кафе", "file": "A1/a1-0001.json" }
+  ]
+}

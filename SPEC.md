@@ -16,33 +16,46 @@
 /icons/
 /js/app.js          Routing, Screens
 /js/reader.js       Textanzeige, Timer, Pause, Klickzählung
-/js/tokens.js       Token-Darstellung, Overlay (für Text und Fragen)
+/js/tokens.js       Token-Darstellung, Overlay (für Text, Fragen und Chat)
 /js/quiz.js         Kontrolle
+/js/chat.js         Frage-Antwort: verzweigtes Gespräch
 /js/stats.js        Statistik, Diagramme
 /js/store.js        lokale Daten (IndexedDB), Export/Import
 /js/sync.js         Gist-Sync
 /content/index.json
 /content/A1/a1-0001.json …
+/content/chat/index.json
+/content/chat/A1/a1-0001.json …
+/content/_inbox/    Eingang für neue Texte/Chats (siehe README dort)
 /fonts/             Literata, Inter (woff2, OFL)
-/tools/validate.mjs Prüfskript für Content (Node)
+/tools/validate.mjs Prüfskript für Texte (Node)
+/tools/validate-chats.mjs Prüfskript für Chats (Node)
 /tools/build-index.mjs erzeugt content/index.json aus den Textdateien
+/tools/build-chat-index.mjs erzeugt content/chat/index.json aus den Chat-Dateien
 /docs/TEXT-VORLAGE.md Vorlage zum Erzeugen neuer Texte in einem normalen Chat
+/docs/CHAT-VORLAGE.md Vorlage zum Erzeugen neuer Frage-Antwort-Chats
 /SPEC.md
 ```
 
-## 3. Content-Format
+### 2.1 Neue Inhalte einpflegen
+- Texte/Chats entstehen über `docs/TEXT-VORLAGE.md` bzw. `docs/CHAT-VORLAGE.md` in einem separaten, normalen Chat (nicht Claude Code) und werden als `.txt`-Dateien mit reinem JSON-Inhalt ausgegeben.
+- Diese Dateien gelangen entweder als Anhang in eine Claude-Code-Sitzung oder – bei größerer Menge – über `content/_inbox/` (direkter Upload im Repo über GitHub, siehe README dort).
+- Claude Code vergibt die nächste freie ID je Stufe, legt die Datei unter `content/<Stufe>/` bzw. `content/chat/<Stufe>/` ab, prüft Inhalt und Grammatik stichprobenartig, baut die Indizes neu (`build-index.mjs` / `build-chat-index.mjs`) und validiert (`validate.mjs` / `validate-chats.mjs`).
+
+## 3. Content-Format (Funktion „Text“)
 
 ### 3.1 `content/index.json`
 ```json
 {
   "version": 3,
   "texts": [
-    { "id": "a1-0001", "level": "A1", "tags": ["Familie"], "title": "Моя сім'я", "file": "A1/a1-0001.json" }
+    { "id": "a1-0001", "level": "A1", "tags": ["Grundlagen"], "titleDe": "Hallo, ich bin Oksana", "title": "Привіт, я Оксана!", "file": "A1/a1-0001.json" }
   ]
 }
 ```
 - Die Datei wird nicht von Hand gepflegt, sondern mit `node tools/build-index.mjs` aus den Textdateien erzeugt. Das Skript speichert eine Prüfsumme (`contentHash`) und erhöht `version` automatisch bei jeder Content-Änderung (Cache-Invalidierung).
-- `tags` sind deutsche Themenbegriffe.
+- `tags` enthält genau einen deutschen Themenbegriff.
+- `titleDe` ist ein kurzer deutscher Titel des konkreten Inhalts (2–5 Wörter), `title` der ukrainische Titel.
 - `level` ∈ A1, A2, B1, B2, C1, C2.
 
 ### 3.2 Textdatei
@@ -50,8 +63,9 @@
 {
   "id": "a1-0001",
   "level": "A1",
-  "tags": ["Familie"],
-  "title": "Моя сім'я",
+  "tags": ["Grundlagen"],
+  "titleDe": "Hallo, ich bin Oksana",
+  "title": "Привіт, я Оксана!",
   "paragraphs": [
     [
       { "t": "Моя", "a": "Мо́я", "l": "мій", "g": "meine", "pos": "Pron", "m": { "gen": "f", "num": "Sg", "case": "Nom" } },
@@ -89,20 +103,20 @@
 | `p` | Satzzeichen oder Leerraum, nicht anklickbar | – |
 
 - Leerzeichen zwischen Wörtern setzt die App automatisch; `p` nur für Satzzeichen und Sonderfälle.
-- **`m`-Schlüssel:** `gen` (m/f/n), `num` (Sg/Pl), `case` (Nom/Gen/Dat/Akk/Inst/Lok/Vok), `asp` (ipf/pf), `tense` (Präs/Prät/Fut), `pers` (1/2/3), `mood` (Ind/Imp/Konj), `inf` (true), `deg` (Pos/Komp/Sup).
-- **Mehrwort-Einheiten:** Alle Tokens mit gleichem `u` werden gemeinsam markiert und zählen als ein Klick. Sie dürfen nicht zusammenhängend sein (z. B. trennbare Konstruktionen).
+- **`m`-Schlüssel:** `gen` (m/f/n), `num` (Sg/Pl), `case` (Nom/Gen/Dat/Akk/Inst/Lok/Vok), `asp` (ipf/pf), `tense` (Präs/Prät/Fut), `pers` (1/2/3), `mood` (Ind/Imp/Konj), `inf` (true), `deg` (Pos/Komp/Sup). Das Overlay zeigt `pos` plus alle gesetzten `m`-Werte als Kurzform (z. B. „Verb · ipf · Prät · f · Sg“).
+- **Mehrwort-Einheiten:** Alle Tokens mit gleichem `u` werden beim Antippen gemeinsam markiert und zählen als ein Klick. Sie dürfen nicht zusammenhängend sein (z. B. trennbare Konstruktionen).
 - **Fragen:** genau 5 pro Text, je 4 Optionen, `a` = Index der richtigen Antwort (0–3). Die Fragetokens sind anklickbar wie Texttokens. Die App mischt die Reihenfolge der Optionen.
 
 ### 3.3 Validierung (`tools/validate.mjs`)
 Das Skript prüft vor jedem Commit:
-- Pflichtfelder sind gesetzt.
+- Pflichtfelder sind gesetzt, inkl. `titleDe` und genau einem Eintrag in `tags`.
 - Jede `u`-ID existiert in `units` und umgekehrt.
 - Es gibt 5 Fragen mit je 4 Optionen, und `a` liegt im Bereich 0–3.
 - Die IDs in `index.json` und den Dateien stimmen überein, es gibt keine Duplikate.
-- `version` wurde erhöht.
+- `version` wurde erhöht, sobald sich `content/` (außer `content/chat` und `content/_inbox`) gegenüber dem letzten Commit geändert hat.
 
 ## 4. Verhalten Funktion 1 (Text)
-- **Start:** Die erste Seite zeigt nur die Funktionswahl (Text, Frage-Antwort). Nach „Text“ folgt die Stufenwahl (A1–C2; Stufen ohne Texte sind sichtbar, aber ausgegraut), dann die Themen-Chips. Dort erscheinen nur verfügbare Themen, jeweils mit der Anzahl der Texte. Der Schalter „Offen / Bereits bearbeitet“ wechselt die Auswahl auf bearbeitete Texte. Die App wählt innerhalb des Themas den nächsten Text nach ID.
+- **Start:** Die erste Seite zeigt nur die Funktionswahl (Text, Frage-Antwort; nicht verfügbare Funktionen sind ausgegraut). Nach „Text“ folgt die Stufenwahl (A1–C2; Stufen ohne Texte sind sichtbar, aber ausgegraut), dann die Themen-Chips. Dort erscheinen nur verfügbare Themen, jeweils mit der Anzahl der Texte. Der Schalter „Offen / Bereits bearbeitet“ wechselt die Auswahl auf bearbeitete Texte. Die App wählt innerhalb des Themas den nächsten Text nach ID.
 - **Lesen:** Ein Tipp auf ein Wort blendet darüber ein Overlay ein mit Betonungsform, Bedeutung, Wortart und Morphologie-Kurzform (z. B. „Subst · f · Sg · Nom“). Das Overlay hat unten eine geschwungene Spitze (wie die Mitte von „{“), die auf das Wort zeigt. Es ist immer nur ein Overlay offen: Ein erneuter Tipp auf das Wort, ein Tipp auf ein anderes Wort oder irgendwo sonst hin schließt es. Nachgeschlagene Wörter bleiben dezent unterstrichen.
 - **Timer:** Er startet beim Anzeigen des Textes und stoppt bei „Kontrolle“. Er pausiert, solange die App im Hintergrund ist (`visibilitychange`).
 - **Kein Abbruch:** Lesen und Kontrolle können nicht abgebrochen werden. Möglich ist nur das Pausieren des Lesens: Der Text wird ausgeblendet, der Timer steht. Wechselt die App in den Hintergrund, pausiert sie automatisch.
@@ -110,22 +124,68 @@ Das Skript prüft vor jedem Commit:
 - **Kontrolle:** Alle 5 Fragen stehen auf einer Seite, jeweils die Frage und darunter die 4 Antworten im 2×2-Raster (A–D). Die erste Auswahl zählt: Die richtige Antwort wird grün, eine falsch gewählte rot markiert (Rand kräftiger als Hintergrund). Die Auswertung ist erst möglich, wenn alle Fragen beantwortet sind. Sie zeigt x/5, Lesezeit, Tempo (Wörter pro Minute), Pace (Sekunden pro 100 Wörter) und die Zahl nachgeschlagener Wörter.
 - **Wiederholungen:** Erneute Bearbeitungen werden durchgeführt und angezeigt, aber nicht in die Statistik geschrieben.
 
-## 5. Statistik
+## 5. Content-Format und Verhalten Funktion 2 (Frage-Antwort)
+
+Ein simuliertes Gespräch: Die App schreibt eine kurze Nachricht (1–3 Sätze), die Lernperson wählt aus vier vorformulierten Antworten. Es gibt keinen bearbeitet/unbearbeitet-Status und keine Statistik – reine Lernfunktion.
+
+### 5.1 `content/chat/index.json`
+Gleicher Aufbau wie `content/index.json` (siehe 3.1), mit Schlüssel `chats` statt `texts`, erzeugt durch `node tools/build-chat-index.mjs`.
+
+### 5.2 Chat-Datei
+```json
+{
+  "id": "a1-0001",
+  "level": "A1",
+  "tags": ["Restaurant"],
+  "titleDe": "Kaffee bestellen",
+  "title": "У кафе",
+  "start": "n1",
+  "nodes": {
+    "n1": {
+      "bot": [ /* Tokens wie im Lesetext, 1–3 Sätze */ ],
+      "answers": [
+        { "t": [ /* Tokens der Antwort */ ], "ok": true, "next": "n2" },
+        { "t": [ /* … */ ], "ok": false }
+      ]
+    }
+  },
+  "units": {}
+}
+```
+- `nodes` ist ein Baum: jeder Knoten hat `bot` (Nachricht der App) und, außer am Ende, genau **vier** `answers`.
+- Von den vier Antworten sind drei inhaltlich passend (`ok: true`, mit `next` zum Folgeknoten) und eine unpassend (`ok: false`, ohne `next`). Mehrere Antworten dürfen auf denselben `next` zeigen (Zusammenführung von Ästen).
+- Ein Knoten ohne `answers` ist ein Gesprächsende.
+- Tokens in `bot` und `answers[].t` folgen demselben Format wie Lesetext-Tokens (3.2), inkl. Mehrwort-Einheiten über das gemeinsame `units`-Objekt.
+- Ausführliche Autorenregeln (Verzweigung, Knotenzahl, Grammatikgrenzen je Stufe): `docs/CHAT-VORLAGE.md`.
+
+### 5.3 Validierung (`tools/validate-chats.mjs`)
+Prüft: `start` existiert in `nodes`; jeder `next` zeigt auf einen existierenden Knoten; jeder Knoten ist vom Start aus erreichbar; jeder Nicht-Endknoten hat genau 4 Antworten mit genau einer `ok: false`; Token-Pflichtfelder wie bei Texten; `version` wurde bei Content-Änderung erhöht.
+
+### 5.4 Verhalten
+- **Start:** Stufenwahl (wie bei Text, ausgegraute Stufen ohne Chats) → Themen-Chips (ohne offen/bearbeitet-Unterscheidung) → Liste der einzelnen Chats dieses Themas nach Titel, mit kleinem Zähler daneben, wie oft der Chat gestartet wurde.
+- **Gespräch:** Die Bot-Nachricht erscheint links als Sprechblase. Darunter stehen die vier Antworten, jede mit antippbaren, tokenisierten Wörtern (Overlay wie im Lesetext) und einem eigenen Pfeil-Button zum Senden. Ein Wort antippen öffnet nur das Overlay, ein Tipp auf den Pfeil sendet die jeweilige Antwort.
+- Die unpassende Antwort wird beim Senden rot markiert; das Gespräch bleibt im selben Knoten, bis eine passende Antwort gesendet wird.
+- Eine passende Antwort erscheint rechts als eigene Sprechblase, danach folgt die nächste Bot-Nachricht mit neuen Antworten.
+- **Ende:** Erreicht das Gespräch einen Knoten ohne Antworten, endet es dort („Gespräch beendet“). Ein Tipp oben auf „Verlassen“ beendet das Gespräch jederzeit. Die Position wird nicht gespeichert – ein Gespräch beginnt immer von vorne.
+- Der Startzähler wird beim Öffnen eines Chats erhöht (lokal, IndexedDB), unabhängig davon, ob das Gespräch beendet wird.
+
+## 6. Statistik (nur Funktion 1)
 - Getrennt nach Stufe, mit drei kleinen Liniendiagrammen: Zeit, Klicks, korrekte Antworten.
 - X-Achse: bearbeitete Texte in Reihenfolge. Sie hat eine feste Breite und wird mit zunehmender Anzahl gestaucht.
 - Zeit wird zusätzlich als Sekunden pro 100 Wörter geführt, damit unterschiedlich lange Texte vergleichbar bleiben.
 
-## 6. Datenmodell (lokal, IndexedDB)
+## 7. Datenmodell (lokal, IndexedDB)
 ```json
 { "id": "uuid", "textId": "a1-0001", "level": "A1", "ts": "2026-09-26T10:00:00Z",
   "sec": 312, "words": 180, "clicks": 14, "correct": 4, "device": "iphone" }
 ```
-- Nur Erstbearbeitungen werden gespeichert.
+- Nur Erstbearbeitungen (Funktion 1) werden gespeichert.
 - „Bearbeitet“ ergibt sich aus dem Vorhandensein eines Datensatzes.
 - Die Liste ist append-only. Einzige Ausnahme ist „Statistik zurücksetzen“ (Einstellungen, mit Ja/Nein-Rückfrage): Es setzt `resetAt` auf den aktuellen Zeitpunkt; alle Datensätze mit `ts <= resetAt` werden verworfen.
 - Export/Import als JSON unter Einstellungen.
+- Chat-Startzähler (Funktion 2) werden separat und nur lokal gespeichert (kein Sync, keine Statistik).
 
-## 7. Sync
+## 8. Sync
 - Ziel ist ein privates (secret) GitHub-Gist mit der Datei `stats.json`, die `{ "v": 1, "resetAt": null, "attempts": [...] }` enthält.
 - Auth über einen GitHub-Token mit Scope `gist`. Er wird einmal pro Gerät in den Einstellungen eingegeben und lokal gespeichert, ebenso die Gist-ID.
 - **Ablauf:** Beim Start, nach jeder abgeschlossenen Kontrolle und bei der Rückkehr online:
@@ -136,18 +196,15 @@ Das Skript prüft vor jedem Commit:
 - Konflikte sind ausgeschlossen, weil die Liste append-only ist und ein Zurücksetzen über `resetAt` auf alle Geräte wirkt.
 - Offline wird lokal weitergearbeitet und später synchronisiert. Der Sync-Status (letzter Sync, Fehler) wird in den Einstellungen angezeigt.
 
-## 8. Service Worker
+## 9. Service Worker
 - App-Shell wird cache-first ausgeliefert.
-- `content/index.json` wird network-first geladen, mit Cache als Fallback. Alle darin gelisteten Texte werden vorab gecacht.
+- `content/index.json` und `content/chat/index.json` werden network-first geladen, mit Cache als Fallback. Alle darin gelisteten Texte/Chats werden vorab gecacht.
 - Der Cache-Name enthält die App-Version (`APP_VERSION` in `sw.js`); sie wird bei jeder Änderung an App-Dateien erhöht. Nach einem Update erscheint ein dezenter Hinweis „Neue Version – neu laden“.
-- Texte liegen in einem eigenen Cache und werden neu geladen, sobald sich `version` in `index.json` ändert.
+- Texte und Chats liegen in einem eigenen Cache und werden neu geladen, sobald sich die jeweilige `version` ändert.
 
-## 9. Ausgegraute Elemente (sichtbar, deaktiviert)
-- Funktion 2 „Frage-Antwort“ auf der Startseite.
-- Stufen ohne Texte in der Stufenwahl.
+## 10. Ausgegraute Elemente (sichtbar, deaktiviert)
+- Stufen ohne Texte bzw. ohne Chats in der jeweiligen Stufenwahl.
 - Alle weiteren Knöpfe, deren Funktion beschrieben, aber noch nicht umgesetzt ist.
 
-## 10. Offen (separat zu klären)
-- Generierungsregeln je Stufe (Grammatik, Wortschatz, Textlänge).
-- Themenliste.
-- Funktion 2.
+## 11. Offen (separat zu klären)
+- Themenliste (wächst mit neuen Texten/Chats; bisherige Kategorien siehe `docs/TEXT-VORLAGE.md`).

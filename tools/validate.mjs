@@ -37,7 +37,9 @@ for (const entry of index.texts ?? []) {
   if (!entry.id) fail(`${ref}: 'id' fehlt`);
   if (!levels.includes(entry.level)) fail(`${ref}: ungültiges level '${entry.level}'`);
   if (!entry.title) fail(`${ref}: 'title' fehlt`);
+  if (!entry.titleDe) fail(`${ref}: 'titleDe' fehlt`);
   if (!entry.file) fail(`${ref}: 'file' fehlt`);
+  if (!Array.isArray(entry.tags) || entry.tags.length !== 1) fail(`${ref}: 'tags' muss genau einen Eintrag haben`);
   if (seenIds.has(entry.id)) fail(`${ref}: Duplikat-ID in index.json`);
   seenIds.add(entry.id);
 
@@ -57,6 +59,7 @@ for (const entry of index.texts ?? []) {
     fail(`${tref}: level '${text.level}' stimmt nicht mit index.json ('${entry.level}') überein`);
   }
   if (!text.title) fail(`${tref}: 'title' fehlt`);
+  if (!text.titleDe) fail(`${tref}: 'titleDe' fehlt`);
   if (!Array.isArray(text.paragraphs) || text.paragraphs.length === 0) {
     fail(`${tref}: 'paragraphs' fehlt oder leer`);
   }
@@ -109,7 +112,7 @@ for (const entry of index.texts ?? []) {
 // Version muss steigen, sobald sich content/ gegenüber dem letzten Commit geändert hat.
 try {
   const git = (cmd) => execSync(cmd, { cwd: root, stdio: ["ignore", "pipe", "ignore"] }).toString();
-  const changed = git("git status --porcelain -- content").trim() !== "";
+  const changed = git("git status --porcelain -- content ':!content/chat' ':!content/_inbox'").trim() !== "";
   if (changed) {
     const previous = JSON.parse(git("git show HEAD:content/index.json")).version;
     if (!(index.version > previous)) {

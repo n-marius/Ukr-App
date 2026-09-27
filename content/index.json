@@ -1,8 +1,10 @@
 {
-  "version": 2,
-  "contentHash": "e379f30ae0afe4ad",
+  "version": 3,
+  "contentHash": "45d2f090a19ee981",
   "texts": [
-    { "id": "a1-0001", "level": "A1", "tags": ["Familie"], "title": "Моя сім'я", "file": "A1/a1-0001.json" },
-    { "id": "a1-0002", "level": "A1", "tags": ["Tagesablauf"], "title": "Мій день", "file": "A1/a1-0002.json" }
+    { "id": "a1-0001", "level": "A1", "tags": ["Grundlagen"], "titleDe": "Hallo, ich bin Oksana", "title": "Привіт, я Оксана!", "file": "A1/a1-0001.json" },
+    { "id": "a1-0002", "level": "A1", "tags": ["Supermarkt"], "titleDe": "Meine Einkaufsliste", "title": "Мій список", "file": "A1/a1-0002.json" },
+    { "id": "a1-0003", "level": "A1", "tags": ["Restaurant"], "titleDe": "Ein gutes Mittagessen", "title": "Гарний обід", "file": "A1/a1-0003.json" },
+    { "id": "a2-0001", "level": "A2", "tags": ["Gesundheit"], "titleDe": "Eine Erkältung", "title": "Звичайна застуда", "file": "A2/a2-0001.json" }
   ]
 }
