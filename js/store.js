@@ -125,30 +125,54 @@ export async function deleteAttemptsUpTo(resetAt) {
   });
 }
 
-export async function getChatStartCount(chatId) {
+// Chat-Starts sind append-only Ereignisse (wie attempts), damit dieselbe
+// resetAt-Schranke und derselbe Sync-Mechanismus wiederverwendet werden können.
+export async function bumpChatStartCount(chatId) {
+  const event = { id: crypto.randomUUID(), chatId, ts: new Date().toISOString() };
+  const { t, store } = await tx(STORE_CHAT_STARTS, "readwrite");
+  store.put(event);
+  return new Promise((resolve, reject) => {
+    t.oncomplete = () => resolve(event);
+    t.onerror = () => reject(t.error);
+  });
+}
+
+export async function getAllChatStarts() {
   const { store } = await tx(STORE_CHAT_STARTS, "readonly");
   return new Promise((resolve, reject) => {
-    const req = store.get(chatId);
-    req.onsuccess = () => resolve(req.result?.count ?? 0);
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
 
 export async function getAllChatStartCounts() {
-  const { store } = await tx(STORE_CHAT_STARTS, "readonly");
+  const resetAt = await getSetting("resetAt", null);
+  const counts = {};
+  for (const e of await getAllChatStarts()) {
+    if (resetAt && e.ts <= resetAt) continue;
+    counts[e.chatId] = (counts[e.chatId] ?? 0) + 1;
+  }
+  return counts;
+}
+
+export async function mergeChatStarts(remoteEvents) {
+  const { t, store } = await tx(STORE_CHAT_STARTS, "readwrite");
+  for (const e of remoteEvents) store.put(e);
   return new Promise((resolve, reject) => {
-    const req = store.getAll();
-    req.onsuccess = () => resolve(Object.fromEntries(req.result.map((r) => [r.id, r.count])));
-    req.onerror = () => reject(req.error);
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
   });
 }
 
-export async function bumpChatStartCount(chatId) {
-  const count = (await getChatStartCount(chatId)) + 1;
+// Entfernt Chat-Start-Ereignisse, die vor oder bei einem Zurücksetzen entstanden sind.
+export async function deleteChatStartsUpTo(resetAt) {
+  const stale = (await getAllChatStarts()).filter((e) => e.ts <= resetAt);
+  if (stale.length === 0) return;
   const { t, store } = await tx(STORE_CHAT_STARTS, "readwrite");
-  store.put({ id: chatId, count });
+  for (const e of stale) store.delete(e.id);
   return new Promise((resolve, reject) => {
-    t.oncomplete = () => resolve(count);
+    t.oncomplete = () => resolve();
     t.onerror = () => reject(t.error);
   });
 }

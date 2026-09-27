@@ -111,6 +111,7 @@ async function showHome() {
 // ---------- Stufe ----------
 
 async function showLevels() {
+  await sync();
   const done = new Set((await getAllAttempts()).map((a) => a.textId));
 
   const rows = LEVELS.map((level) => {
@@ -193,6 +194,7 @@ async function showTopics(level, showDone = false) {
 // ---------- Frage-Antwort: Stufe ----------
 
 async function showChatLevels() {
+  await sync();
   const rows = LEVELS.map((level) => {
     const chats = chatIndex.chats.filter((c) => c.level === level);
     const available = chats.length > 0;
