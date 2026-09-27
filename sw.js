@@ -1,7 +1,7 @@
 // App-Shell: cache-first, Cache-Name enthält die App-Version (bei jeder Änderung erhöhen!).
 // content/index.json und content/chat/index.json: network-first mit Cache-Fallback;
 // alle gelisteten Texte/Chats werden vorab gecacht und bei geänderter Content-Version neu geladen.
-const APP_VERSION = "3.2.0";
+const APP_VERSION = "3.3.0";
 const SHELL_CACHE = `ukr-shell-${APP_VERSION}`;
 const CONTENT_CACHE = "ukr-content";
 
