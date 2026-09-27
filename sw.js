@@ -1,10 +1,14 @@
 // App-Shell: cache-first, Cache-Name enthält die App-Version (bei jeder Änderung erhöhen!).
-// content/index.json: network-first mit Cache-Fallback; alle gelisteten Texte werden vorab gecacht
-// und bei geänderter Content-Version neu geladen.
-const APP_VERSION = "2.1.0";
+// content/index.json und content/chat/index.json: network-first mit Cache-Fallback;
+// alle gelisteten Texte/Chats werden vorab gecacht und bei geänderter Content-Version neu geladen.
+const APP_VERSION = "3.0.0";
 const SHELL_CACHE = `ukr-shell-${APP_VERSION}`;
 const CONTENT_CACHE = "ukr-content";
-const INDEX_URL = "content/index.json";
+
+const INDEXES = [
+  { url: "content/index.json", listKey: "texts", versionKey: "text-content-version" },
+  { url: "content/chat/index.json", listKey: "chats", versionKey: "chat-content-version" },
+];
 
 const SHELL_FILES = [
   "./",
@@ -14,6 +18,7 @@ const SHELL_FILES = [
   "js/app.js",
   "js/reader.js",
   "js/quiz.js",
+  "js/chat.js",
   "js/stats.js",
   "js/store.js",
   "js/sync.js",
@@ -30,11 +35,13 @@ self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(SHELL_CACHE);
     await cache.addAll(SHELL_FILES.map((url) => new Request(url, { cache: "reload" })));
-    try {
-      await refreshContent(await fetch(INDEX_URL, { cache: "no-store" }));
-    } catch {
-      // offline: Texte werden beim nächsten Online-Start geladen
-    }
+    await Promise.all(INDEXES.map(async (idx) => {
+      try {
+        await refreshContent(idx, await fetch(idx.url, { cache: "no-store" }));
+      } catch {
+        // offline: Inhalte werden beim nächsten Online-Start geladen
+      }
+    }));
     await self.skipWaiting();
   })());
 });
@@ -54,8 +61,9 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (url.pathname.endsWith("/" + INDEX_URL)) {
-    event.respondWith(indexNetworkFirst(event));
+  const idx = INDEXES.find((i) => url.pathname.endsWith("/" + i.url));
+  if (idx) {
+    event.respondWith(indexNetworkFirst(idx, event));
   } else if (url.pathname.includes("/content/")) {
     event.respondWith(cacheFirst(CONTENT_CACHE, request));
   } else {
@@ -63,36 +71,37 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
-async function indexNetworkFirst(event) {
+async function indexNetworkFirst(idx, event) {
   try {
     const res = await fetch(event.request, { cache: "no-store" });
     if (res.ok) {
-      event.waitUntil(refreshContent(res.clone()).catch(() => {}));
+      event.waitUntil(refreshContent(idx, res.clone()).catch(() => {}));
       return res;
     }
     throw new Error(String(res.status));
   } catch {
-    const cached = await (await caches.open(CONTENT_CACHE)).match(INDEX_URL);
+    const cached = await (await caches.open(CONTENT_CACHE)).match(idx.url);
     return cached ?? Response.error();
   }
 }
 
-async function refreshContent(indexResponse) {
+async function refreshContent(idx, indexResponse) {
   if (!indexResponse.ok) return;
   const cache = await caches.open(CONTENT_CACHE);
   const copy = indexResponse.clone();
   const index = await indexResponse.json();
-  const stored = await cache.match("content-version");
+  const base = idx.url.replace(/index\.json$/, "");
+  const stored = await cache.match(idx.versionKey);
   const changed = !stored || (await stored.text()) !== String(index.version);
 
-  await cache.put(INDEX_URL, copy);
-  await Promise.all(index.texts.map(async (t) => {
-    const url = `content/${t.file}`;
+  await cache.put(idx.url, copy);
+  await Promise.all((index[idx.listKey] ?? []).map(async (item) => {
+    const url = `${base}${item.file}`;
     if (!changed && (await cache.match(url))) return;
     const res = await fetch(url, { cache: "reload" });
     if (res.ok) await cache.put(url, res);
   }));
-  await cache.put("content-version", new Response(String(index.version)));
+  await cache.put(idx.versionKey, new Response(String(index.version)));
 }
 
 async function cacheFirst(cacheName, request) {

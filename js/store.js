@@ -1,8 +1,9 @@
-// Lokale Datenhaltung (IndexedDB): abgeschlossene Erstbearbeitungen und Einstellungen.
+// Lokale Datenhaltung (IndexedDB): abgeschlossene Erstbearbeitungen, Einstellungen, Chat-Startzähler.
 const DB_NAME = "ukr-app";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_ATTEMPTS = "attempts";
 const STORE_SETTINGS = "settings";
+const STORE_CHAT_STARTS = "chatStarts";
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -17,6 +18,9 @@ function openDb() {
       }
       if (!db.objectStoreNames.contains(STORE_SETTINGS)) {
         db.createObjectStore(STORE_SETTINGS, { keyPath: "key" });
+      }
+      if (!db.objectStoreNames.contains(STORE_CHAT_STARTS)) {
+        db.createObjectStore(STORE_CHAT_STARTS, { keyPath: "id" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -117,6 +121,34 @@ export async function deleteAttemptsUpTo(resetAt) {
   for (const a of stale) store.delete(a.id);
   return new Promise((resolve, reject) => {
     t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
+  });
+}
+
+export async function getChatStartCount(chatId) {
+  const { store } = await tx(STORE_CHAT_STARTS, "readonly");
+  return new Promise((resolve, reject) => {
+    const req = store.get(chatId);
+    req.onsuccess = () => resolve(req.result?.count ?? 0);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function getAllChatStartCounts() {
+  const { store } = await tx(STORE_CHAT_STARTS, "readonly");
+  return new Promise((resolve, reject) => {
+    const req = store.getAll();
+    req.onsuccess = () => resolve(Object.fromEntries(req.result.map((r) => [r.id, r.count])));
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function bumpChatStartCount(chatId) {
+  const count = (await getChatStartCount(chatId)) + 1;
+  const { t, store } = await tx(STORE_CHAT_STARTS, "readwrite");
+  store.put({ id: chatId, count });
+  return new Promise((resolve, reject) => {
+    t.oncomplete = () => resolve(count);
     t.onerror = () => reject(t.error);
   });
 }

@@ -1,7 +1,8 @@
 import { createReader } from "./reader.js";
 import { renderQuiz } from "./quiz.js";
+import { renderChat } from "./chat.js";
 import { renderStats, formatDuration } from "./stats.js";
-import { addAttempt, getAllAttempts, hasAttempt, detectDevice, exportData, importData } from "./store.js";
+import { addAttempt, getAllAttempts, hasAttempt, detectDevice, exportData, importData, getAllChatStartCounts, bumpChatStartCount } from "./store.js";
 import { getSyncConfig, setSyncConfig, sync, resetAllStats } from "./sync.js";
 import { escapeHtml } from "./tokens.js";
 
@@ -27,10 +28,12 @@ const ICON = {
   arrow: svg(`<path d="M5 12h14M13 6l6 6-6 6"/>`, `class="mode-go"`),
   text: svg(`<path d="M5 4.5h9.5L19 9v10.5H5z"/><path d="M14.5 4.5V9H19M8.5 13h7M8.5 16.5h5"/>`),
   dialog: svg(`<path d="M4 5.5h11v8H8.5L5 16.5v-3H4z"/><path d="M15 9h5v8h-1v2.5L16 17h-4.5v-3.5"/>`),
+  exit: svg(`<path d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3M14 16l4-4-4-4M18 12H8"/>`),
 };
 
 const root = document.getElementById("app");
 let index = null;
+let chatIndex = null;
 let current = null; // Name des aktiven Screens
 
 // ---------- Rahmen ----------
@@ -65,6 +68,7 @@ async function showHome() {
   const done = new Set((await getAllAttempts()).map((a) => a.textId));
   const total = index.texts.length;
   const open = index.texts.filter((t) => !done.has(t.id)).length;
+  const totalChats = chatIndex.chats.length;
 
   render("home", {
     right: `
@@ -82,11 +86,11 @@ async function showHome() {
           <span class="mode-title">Text</span>
           <span class="mode-text">${total ? `${plural(total, "Text", "Texte")} · ${open} offen` : "Lesen mit Wortinfos und Kontrolle"}</span>
         </button>
-        <button class="mode" disabled>
+        <button class="mode" id="mode-chat" ${totalChats ? "" : "disabled"}>
           <span class="mode-icon">${ICON.dialog}</span>
-          <span class="badge">In Vorbereitung</span>
+          ${totalChats ? ICON.arrow : `<span class="badge">Noch keine Chats</span>`}
           <span class="mode-title">Frage-Antwort</span>
-          <span class="mode-text">Fragen verstehen und beantworten</span>
+          <span class="mode-text">${totalChats ? plural(totalChats, "Gespräch", "Gespräche") : "Gespräche führen und verstehen"}</span>
         </button>
       </div>`,
   });
@@ -94,6 +98,7 @@ async function showHome() {
   on("#to-stats", "click", () => showStats());
   on("#to-settings", "click", showSettings);
   on("#mode-text", "click", showLevels);
+  on("#mode-chat", "click", showChatLevels);
 }
 
 // ---------- Stufe ----------
@@ -178,6 +183,126 @@ async function showTopics(level, showDone = false) {
   );
 }
 
+// ---------- Frage-Antwort: Stufe ----------
+
+async function showChatLevels() {
+  const rows = LEVELS.map((level) => {
+    const chats = chatIndex.chats.filter((c) => c.level === level);
+    const available = chats.length > 0;
+    return `
+      <button class="row" data-level="${level}" ${available ? "" : "disabled"}>
+        <span class="row-lead">${level}</span>
+        <span class="row-main">
+          <span class="row-title">${LEVEL_NAMES[level]}</span>
+          <span class="row-sub">${available ? plural(chats.length, "Gespräch", "Gespräche") : "Noch keine Chats"}</span>
+        </span>
+        ${available ? ICON.chevron : ""}
+      </button>`;
+  }).join("");
+
+  render("chat-levels", {
+    left: backButton,
+    body: `
+      <header class="page-head">
+        <p class="kicker">Frage-Antwort</p>
+        <h1 class="page-title">Stufe wählen</h1>
+      </header>
+      <div class="group">${rows}</div>`,
+  });
+
+  on("#back", "click", showHome);
+  root.querySelectorAll("[data-level]:not(:disabled)").forEach((b) => b.addEventListener("click", () => showChatTopics(b.dataset.level)));
+}
+
+// ---------- Frage-Antwort: Thema ----------
+
+async function showChatTopics(level) {
+  const chats = chatIndex.chats.filter((c) => c.level === level);
+
+  const tagCounts = new Map();
+  for (const c of chats) for (const tag of c.tags) tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+
+  const chips = [...tagCounts]
+    .sort((a, b) => a[0].localeCompare(b[0], "de"))
+    .map(([tag, n]) => `<button class="chip" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}<span class="chip-count">${n}</span></button>`)
+    .join("");
+
+  render("chat-topics", {
+    left: backButton,
+    body: `
+      <header class="page-head">
+        <p class="kicker">Frage-Antwort · <b>${level}</b> ${LEVEL_NAMES[level]}</p>
+        <h1 class="page-title">Thema wählen</h1>
+        <p class="page-sub">${plural(chats.length, "Gespräch", "Gespräche")}</p>
+      </header>
+      <h2 class="label">Themen</h2>
+      <div class="chips">${chips}</div>`,
+  });
+
+  on("#back", "click", showChatLevels);
+  root.querySelectorAll(".chip").forEach((b) =>
+    b.addEventListener("click", () => showChatList(level, b.dataset.tag))
+  );
+}
+
+// ---------- Frage-Antwort: Chat wählen ----------
+
+async function showChatList(level, tag) {
+  const chats = chatIndex.chats
+    .filter((c) => c.level === level && c.tags.includes(tag))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  const counts = await getAllChatStartCounts();
+
+  const rows = chats.map((c) => {
+    const n = counts[c.id] ?? 0;
+    return `
+      <button class="row" data-id="${c.id}">
+        <span class="row-main">
+          <span class="row-title" lang="uk">${escapeHtml(c.title)}</span>
+          <span class="row-sub">${escapeHtml(c.titleDe)}</span>
+        </span>
+        <span class="row-trail">${n > 0 ? `${n}×` : ""}</span>
+        ${ICON.chevron}
+      </button>`;
+  }).join("");
+
+  render("chat-list", {
+    left: backButton,
+    body: `
+      <header class="page-head">
+        <p class="kicker">Frage-Antwort · <b>${level}</b> · ${escapeHtml(tag)}</p>
+        <h1 class="page-title">Gespräch wählen</h1>
+      </header>
+      <div class="group">${rows}</div>`,
+  });
+
+  on("#back", "click", () => showChatTopics(level));
+  root.querySelectorAll("[data-id]").forEach((b) =>
+    b.addEventListener("click", () => showChatRoom(chats.find((c) => c.id === b.dataset.id), level, tag))
+  );
+}
+
+// ---------- Frage-Antwort: Gespräch ----------
+
+async function showChatRoom(entry, level, tag) {
+  const chat = await (await fetch(`content/chat/${entry.file}`)).json();
+  bumpChatStartCount(entry.id);
+
+  render("chat-room", {
+    left: `<button class="pill-btn" id="leave">${ICON.exit}<span>Verlassen</span></button>`,
+    right: `<span class="bar-crumb"><b>${level}</b> · ${escapeHtml(tag)}</span>`,
+    body: `
+      <header class="page-head">
+        <p class="kicker" lang="uk">${escapeHtml(chat.title)}</p>
+        <h1 class="page-title">${escapeHtml(chat.titleDe)}</h1>
+      </header>
+      <div id="chat"></div>`,
+  });
+
+  on("#leave", "click", () => showChatList(level, tag));
+  renderChat($("#chat"), chat);
+}
+
 // ---------- Lesen ----------
 
 const crumb = (entry, tag) =>
@@ -194,6 +319,7 @@ async function showReader(entry, tag) {
     body: `
       <div id="reading">
         <header class="reader-head">
+          <p class="kicker">${escapeHtml(entry.titleDe)}</p>
           <h1 class="reader-title" lang="uk">${escapeHtml(text.title)}</h1>
           <p class="reader-meta">${words} Wörter${firstTime ? " · Wort antippen für Bedeutung und Grammatik" : ""}</p>
         </header>
@@ -238,7 +364,7 @@ function showQuiz(entry, text, meta, tag) {
     left: crumb(entry, tag),
     body: `
       <header class="page-head">
-        <p class="kicker" lang="uk">${escapeHtml(text.title)}</p>
+        <p class="kicker">${escapeHtml(entry.titleDe)}</p>
         <h1 class="page-title">Kontrolle</h1>
         <p class="page-sub">${total} Fragen zum Text. Die erste Auswahl zählt.</p>
       </header>
@@ -287,7 +413,7 @@ function showResult(entry, m) {
   render("result", {
     body: `
       <div class="result">
-        <p class="kicker" lang="uk">${escapeHtml(entry.title)}</p>
+        <p class="kicker">${escapeHtml(entry.titleDe)}</p>
         <p class="score">${m.correct}<small>/ ${m.total}</small></p>
         <p class="score-caption">${m.correct === m.total ? "Alles richtig." : "richtig beantwortet"}</p>
         <div class="group">
@@ -456,7 +582,10 @@ function toast(message, action) {
 // ---------- Start ----------
 
 async function init() {
-  index = await (await fetch("content/index.json")).json();
+  [index, chatIndex] = await Promise.all([
+    fetch("content/index.json").then((r) => r.json()),
+    fetch("content/chat/index.json").then((r) => r.json()),
+  ]);
   await showHome();
 
   const refreshHome = (res) => { if (res?.changed && current === "home") showHome(); };

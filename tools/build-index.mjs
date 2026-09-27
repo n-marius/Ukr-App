@@ -22,7 +22,7 @@ for (const level of LEVELS) {
     const raw = readFileSync(path.join(dir, name), "utf8");
     const text = JSON.parse(raw);
     hash.update(file).update("\0").update(raw).update("\0");
-    texts.push({ id: text.id, level: text.level, tags: text.tags, title: text.title, file });
+    texts.push({ id: text.id, level: text.level, tags: text.tags, titleDe: text.titleDe, title: text.title, file });
   }
 }
 texts.sort((a, b) => a.id.localeCompare(b.id));
