@@ -1,9 +1,11 @@
 import { createReader } from "./reader.js";
 import { renderQuiz } from "./quiz.js";
 import { renderChat } from "./chat.js";
-import { renderStats, formatDuration } from "./stats.js";
+import { renderStats, renderVocabStats, formatDuration } from "./stats.js";
+import { setupVocab } from "./vapp.js";
+import { getAllEvents as getAllVocabEvents } from "./vstore.js";
 import { addAttempt, getAllAttempts, hasAttempt, detectDevice, exportData, importData, getAllChatStartCounts, bumpChatStartCount } from "./store.js";
-import { getSyncConfig, setSyncConfig, sync, resetAllStats } from "./sync.js";
+import { getSyncConfig, setSyncConfig, sync, resetAllStats, resetVocabStats, resetVocabLevels } from "./sync.js";
 import { escapeHtml } from "./tokens.js";
 
 const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
@@ -30,20 +32,30 @@ const ICON = {
   dialog: svg(`<path d="M4 5.5h11v8H8.5L5 16.5v-3H4z"/><path d="M15 9h5v8h-1v2.5L16 17h-4.5v-3.5"/>`),
   exit: svg(`<path d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3M14 16l4-4-4-4M18 12H8"/>`),
   cards: svg(`<rect x="6.5" y="7" width="14" height="10" rx="1.5"/><path d="M3.5 5v10a1.5 1.5 0 0 0 1.5 1.5"/><path d="M10.5 12h6M10.5 14.5h4"/>`),
+  quiz: svg(`<circle cx="12" cy="12" r="9"/><path d="M9.2 9.5a2.8 2.8 0 1 1 3.6 2.7c-.8.3-1.1.8-1.1 1.5"/><circle cx="12" cy="16.6" r="0.4" fill="currentColor"/>`),
+  hand: svg(`<path d="M6 4h6M6 8h9M6 12h7"/><circle cx="18" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="16" r="4"/>`),
+  auto: svg(`<path d="M12 4v3M12 17v3M4 12h3M17 12h3"/><circle cx="12" cy="12" r="4.5"/>`),
+  flag: svg(`<path d="M6 21V4"/><path d="M6 4.5c1.4-1 3-1 4.5 0s3.1 1 4.5 0v9c-1.4 1-3 1-4.5 0s-3.1-1-4.5 0"/>`),
+  download: svg(`<path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14"/>`),
+  up: svg(`<path d="M7 12l5-5 5 5M7 17.5l5-5 5 5"/>`),
+  clock: svg(`<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>`, `class="row-clock"`),
 };
 
 const root = document.getElementById("app");
 let index = null;
 let chatIndex = null;
+let vocab = null; // Vokabelfunktion (js/vapp.js)
+let vocabCount = 0;
 let current = null; // Name des aktiven Screens
 
 // ---------- Rahmen ----------
 
-function render(name, { left = "", right = "", body = "", dock = "" }) {
+function render(name, { left = "", mid = "", right = "", body = "", dock = "" }) {
   current = name;
   root.innerHTML = `
     <header class="bar"><div class="bar-inner">
       <div class="bar-side">${left}</div>
+      ${mid ? `<div class="bar-mid">${mid}</div>` : ""}
       <div class="bar-side">${right}</div>
     </div></header>
     <main class="screen${dock ? " has-dock" : ""}">${body}</main>
@@ -60,12 +72,14 @@ window.addEventListener("scroll", updateBarBorder, { passive: true });
 
 const $ = (sel) => root.querySelector(sel);
 const on = (sel, ev, fn) => $(sel)?.addEventListener(ev, fn);
-const backButton = `<button class="icon-btn" id="back" aria-label="Zurück">${ICON.back}</button>`;
+const backButtonFor = (label = "Zurück") => `<button class="icon-btn" id="back" aria-label="${label}">${ICON.back}</button>`;
+const backButton = backButtonFor();
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 // ---------- Start: Funktionswahl ----------
 
 async function showHome() {
+  vocabCount = await vocab.count();
   const done = new Set((await getAllAttempts()).map((a) => a.textId));
   const total = index.texts.length;
   const open = index.texts.filter((t) => !done.has(t.id)).length;
@@ -93,11 +107,11 @@ async function showHome() {
           <span class="mode-title">Frage-Antwort</span>
           <span class="mode-text">${totalChats ? plural(totalChats, "Gespräch", "Gespräche") : "Gespräche führen und verstehen"}</span>
         </button>
-        <button class="mode" disabled>
+        <button class="mode" id="mode-vocab" ${vocabCount ? "" : "disabled"}>
           <span class="mode-icon">${ICON.cards}</span>
-          <span class="badge">In Vorbereitung</span>
+          ${vocabCount ? ICON.arrow : `<span class="badge">Noch keine Vokabeln</span>`}
           <span class="mode-title">Vokabeln</span>
-          <span class="mode-text">Wortschatz gezielt üben</span>
+          <span class="mode-text">${vocabCount ? plural(vocabCount, "Vokabel", "Vokabeln") : "Wortschatz gezielt üben"}</span>
         </button>
       </div>`,
   });
@@ -106,6 +120,7 @@ async function showHome() {
   on("#to-settings", "click", showSettings);
   on("#mode-text", "click", showLevels);
   on("#mode-chat", "click", showChatLevels);
+  on("#mode-vocab", "click", () => vocab.showTypes());
 }
 
 // ---------- Stufe ----------
@@ -440,20 +455,34 @@ function showResult(entry, m) {
 
 // ---------- Statistik ----------
 
-async function showStats(level) {
-  const attempts = await getAllAttempts();
-  level ??= LEVELS.find((l) => attempts.some((a) => a.level === l)) ?? "A1";
+async function showStats(tab = "texte", level) {
+  const tabs = `<div class="seg stats-tabs">
+      <button data-tab="texte" class="${tab === "texte" ? "is-active" : ""}">Texte</button>
+      <button data-tab="vokabeln" class="${tab === "vokabeln" ? "is-active" : ""}">Vokabeln</button>
+    </div>`;
 
-  render("stats", {
-    left: backButton,
-    body: `
-      <header class="page-head"><h1 class="page-title">Statistik</h1></header>
-      <div class="seg levels">${LEVELS.map((l) => `<button data-level="${l}" class="${l === level ? "is-active" : ""}">${l}</button>`).join("")}</div>
-      <div id="stats"></div>`,
-  });
+  if (tab === "vokabeln") {
+    render("stats", {
+      left: backButton,
+      body: `<header class="page-head"><h1 class="page-title">Statistik</h1></header>${tabs}<div id="stats"></div>`,
+    });
+    renderVocabStats($("#stats"), await getAllVocabEvents());
+  } else {
+    const attempts = await getAllAttempts();
+    level ??= LEVELS.find((l) => attempts.some((a) => a.level === l)) ?? "A1";
+    render("stats", {
+      left: backButton,
+      body: `
+        <header class="page-head"><h1 class="page-title">Statistik</h1></header>
+        ${tabs}
+        <div class="seg levels">${LEVELS.map((l) => `<button data-level="${l}" class="${l === level ? "is-active" : ""}">${l}</button>`).join("")}</div>
+        <div id="stats"></div>`,
+    });
+    root.querySelectorAll(".levels [data-level]").forEach((b) => b.addEventListener("click", () => showStats("texte", b.dataset.level)));
+    renderStats($("#stats"), attempts, level);
+  }
   on("#back", "click", showHome);
-  root.querySelectorAll(".levels [data-level]").forEach((b) => b.addEventListener("click", () => showStats(b.dataset.level)));
-  renderStats($("#stats"), attempts, level);
+  root.querySelectorAll(".stats-tabs [data-tab]").forEach((b) => b.addEventListener("click", () => showStats(b.dataset.tab)));
 }
 
 // ---------- Einstellungen ----------
@@ -493,6 +522,12 @@ async function showSettings() {
         <button class="row" id="export"><span class="row-main"><span class="row-title">Exportieren</span><span class="row-sub">Alle Ergebnisse als JSON-Datei</span></span>${ICON.chevron}</button>
         <label class="row file-row"><span class="row-main"><span class="row-title">Importieren</span><span class="row-sub">JSON-Datei hinzufügen</span></span>${ICON.chevron}<input id="import" type="file" accept="application/json,.json"></label>
         <button class="row row-danger" id="reset"><span class="row-main"><span class="row-title">Statistik zurücksetzen</span></span></button>
+      </div>
+
+      <h2 class="label">Vokabeln</h2>
+      <div class="group">
+        <button class="row row-danger" id="reset-vocab-levels"><span class="row-main"><span class="row-title">Alle Vokabeln auf Stufe 1 zurücksetzen</span><span class="row-sub">Prioritäten bleiben erhalten</span></span></button>
+        <button class="row row-danger" id="reset-vocab-stats"><span class="row-main"><span class="row-title">Vokabel-Statistik löschen</span></span></button>
       </div>`,
   });
 
@@ -517,6 +552,20 @@ async function showSettings() {
     }
     showSettings();
   });
+  on("#reset-vocab-levels", "click", () =>
+    confirmDialog({
+      title: "Vokabeln zurücksetzen?",
+      text: "Alle Vokabeln in beiden Richtungen stehen danach wieder in Stufe 1 – auch auf synchronisierten Geräten. Prioritäten bleiben erhalten.",
+      onYes: async () => { await resetVocabLevels(); toast("Vokabeln zurückgesetzt"); },
+    })
+  );
+  on("#reset-vocab-stats", "click", () =>
+    confirmDialog({
+      title: "Vokabel-Statistik löschen?",
+      text: "Die Tagesstatistik der Vokabeln wird gelöscht – auch auf synchronisierten Geräten. Die Stufen bleiben erhalten.",
+      onYes: async () => { await resetVocabStats(); toast("Vokabel-Statistik gelöscht"); },
+    })
+  );
   on("#reset", "click", () =>
     confirmDialog({
       title: "Statistik zurücksetzen?",
@@ -591,10 +640,14 @@ function toast(message, action) {
 // ---------- Start ----------
 
 async function init() {
-  [index, chatIndex] = await Promise.all([
+  let vocabIndex;
+  [index, chatIndex, vocabIndex] = await Promise.all([
     fetch("content/index.json").then((r) => r.json()),
     fetch("content/chat/index.json").then((r) => r.json()),
+    fetch("content/vokabeln/index.json").then((r) => r.json()).catch(() => ({ words: [] })),
   ]);
+  vocab = setupVocab({ render, root, ICON, backButton: backButtonFor, plural, toast, confirmDialog, showHome, allWords: vocabIndex.words });
+  vocabCount = await vocab.count();
   await showHome();
 
   const refreshHome = (res) => { if (res?.changed && current === "home") showHome(); };

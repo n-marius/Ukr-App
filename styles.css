@@ -57,6 +57,9 @@
   --correct-soft: #ebf6ef;
   --wrong: #c0362c;
   --wrong-soft: #fdeeec;
+  /* Helleres Blau für „Direkt in Stufe 4“ und Prio „niedrig“ (Vokabeln) */
+  --blue: #3a6cc6;
+  --blue-soft: rgba(58, 108, 198, 0.1);
 
   --btn-bg: #111113;
   --btn-bg-hover: #2a2a2e;
@@ -101,6 +104,8 @@
     --correct-soft: rgba(76, 195, 138, 0.13);
     --wrong: #f07167;
     --wrong-soft: rgba(240, 113, 103, 0.13);
+    --blue: #86a9ec;
+    --blue-soft: rgba(134, 169, 236, 0.14);
 
     --btn-bg: #f3f3f4;
     --btn-bg-hover: #ffffff;
@@ -169,7 +174,9 @@ button:disabled { cursor: default; }
   justify-content: space-between;
   gap: 8px;
 }
-.bar-side { display: flex; align-items: center; gap: 2px; min-width: 40px; }
+.bar-side { display: flex; align-items: center; gap: 2px; min-width: 40px; flex-shrink: 1; }
+.bar-side #flag-btn { margin-right: -6px; }
+.bar-mid { flex: 1; display: flex; justify-content: center; min-width: 0; }
 .bar-crumb {
   padding-left: 8px;
   font-size: 13.5px;
@@ -247,7 +254,8 @@ button:disabled { cursor: default; }
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 .pill-btn svg { width: 13px; height: 13px; }
-.pill-btn:hover { color: var(--ink); border-color: var(--ink-3); }
+.pill-btn:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-3); }
+.pill-btn:disabled { opacity: 0.4; }
 
 .btn {
   width: 100%;
@@ -282,6 +290,7 @@ button:disabled { cursor: default; }
 }
 .seg button {
   flex: 1;
+  min-width: 0;
   height: 34px;
   padding: 0 12px;
   border-radius: 8px;
@@ -864,4 +873,205 @@ button.row:active:not(:disabled), label.row:active { background: var(--surface-2
   .page-title, .reader-title { font-size: 30px; }
   .reader-text { font-size: 20px; }
   .answer { font-size: 16px; gap: 9px; }
+}
+
+/* ---------- Vokabeln ----------
+   Übernommen aus der Lernapp (Karteikarte, Frage-Antwort, Prio-Symbol, Untere Leiste) und auf die
+   Wortkarte angepasst. Alles, was mit den Texten/Chats kollidieren könnte, hängt an `.vocab`. */
+
+.dock-col { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.dock-row { display: flex; gap: 8px; }
+.dock-row-split { display: grid; grid-template-columns: 1fr 1fr; }
+.dock-pair { display: flex; gap: 8px; min-width: 0; }
+.dock-progress { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+.btn-correct, .btn-wrong, .btn-fasttrack {
+  --tone: var(--ink-2);
+  --tone-soft: var(--surface-2);
+  background: var(--tone-soft);
+  color: var(--tone);
+  border: 1px solid var(--tone);
+  box-shadow: inset 0 0 0 1px var(--tone);
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+.btn-correct { --tone: var(--correct); --tone-soft: var(--correct-soft); }
+.btn-wrong { --tone: var(--wrong); --tone-soft: var(--wrong-soft); }
+.btn-fasttrack { --tone: var(--blue); --tone-soft: var(--blue-soft); }
+.btn-correct:hover:not(:disabled), .btn-wrong:hover:not(:disabled), .btn-fasttrack:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--tone) 16%, var(--bg));
+}
+.btn-correct:disabled, .btn-wrong:disabled, .btn-fasttrack:disabled {
+  background: transparent;
+  color: var(--ink-4);
+  border-color: var(--line-2);
+  box-shadow: none;
+}
+.btn-fill { flex: 1; width: auto; min-width: 0; }
+.btn-fasttrack { width: 50px; flex-shrink: 0; padding: 0; }
+.btn-fasttrack svg { width: 20px; height: 20px; stroke-width: 2.1; }
+
+/* Prio-Symbol: Farben je Prio; das SVG selbst liefert js/prio.js */
+.prio-btn, .prio-toggle-btn {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  border-radius: 30%;
+  transition: transform 0.12s var(--ease);
+}
+.prio-btn:active, .prio-toggle-btn:active { transform: scale(0.92); }
+.prio-icon { display: block; width: 100%; height: 100%; overflow: visible; }
+.prio-bg { fill: var(--prio-tint); stroke: var(--prio-ring); stroke-width: 1px; vector-effect: non-scaling-stroke; transition: fill 0.15s ease, stroke 0.15s ease; }
+.prio-glyph { fill: var(--prio-ink); stroke: var(--prio-ink); transition: fill 0.15s ease, stroke 0.15s ease; }
+.prio-slash { fill: none; stroke: var(--ink-3); stroke-width: 4.5; stroke-linecap: round; }
+[data-prio="hoch"] { --prio-ink: var(--wrong); --prio-tint: var(--wrong-soft); --prio-ring: color-mix(in srgb, var(--wrong) 24%, transparent); }
+[data-prio="normal"] { --prio-ink: var(--ink-2); --prio-tint: var(--surface-2); --prio-ring: var(--line-2); }
+[data-prio="niedrig"] { --prio-ink: var(--blue); --prio-tint: var(--blue-soft); --prio-ring: color-mix(in srgb, var(--blue) 24%, transparent); }
+
+/* Prio-Auswahl: gleiche Größe wie das Symbol auf der Karte (24 px) */
+.prio-row { display: flex; align-items: center; justify-content: space-between; margin: 18px 2px 20px; }
+.prio-toggle { display: flex; gap: 14px; }
+.prio-toggle-btn { width: 24px; height: 24px; }
+.prio-toggle-btn::before, .prio-btn::before { content: ""; position: absolute; inset: -9px; }
+.prio-toggle-btn[data-active="false"] { --prio-ink: var(--ink-4); --prio-tint: transparent; --prio-ring: var(--line-2); }
+.prio-toggle-btn[data-active="false"] .prio-glyph { opacity: 0.75; }
+.prio-count { font-size: 13px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.prio-btn { width: 24px; height: 24px; }
+.stats-tabs { margin-bottom: 14px; }
+
+/* Karteikarte */
+.vocab .flash { display: flex; flex-direction: column; gap: 14px; }
+.flash-face {
+  position: relative;
+  min-height: 128px;
+  padding: 22px 22px 20px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+}
+.flash-face > div { width: 100%; }
+.flash-face-question { display: block; min-height: 0; }
+.flash-q { display: flow-root; }
+.flash-answer-wait { margin: 0; font-size: 15px; color: var(--ink-3); }
+.flash-face.is-waiting { cursor: pointer; width: 100%; }
+.flash-face.is-waiting:hover { border-color: var(--line-2); background: var(--hover); }
+.card-meta { float: right; display: flex; align-items: center; gap: 6px; margin: 2px -4px 6px 14px; }
+.level-chip {
+  position: absolute;
+  top: 5px;
+  right: 18px;
+  display: inline-flex;
+  align-items: center;
+  height: 15px;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Das Wort selbst: Serifenschrift, groß; Zahlen/Oberfläche bleiben Sans */
+.v-word {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 30px;
+  line-height: 1.25;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  overflow-wrap: anywhere;
+}
+.v-answer { font-size: 28px; }
+.v-hint { margin: 8px 0 0; font-size: 14px; color: var(--ink-3); }
+.v-opt { font-family: var(--serif); }
+
+/* Zusatzinfos unter dem Wort (Wortart, Genus, Formen, Hinweis) – Linie und Ton wie die Erklärung der Lernapp */
+.v-info { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 13.5px; line-height: 1.55; color: var(--ink-2); text-align: left; }
+.v-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.v-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-family: var(--sans);
+  font-size: 11.5px;
+  font-weight: 620;
+  line-height: 1;
+  color: var(--ink-3);
+}
+.v-line { display: flex; gap: 12px; margin: 10px 0 0; }
+.v-line:first-child, .v-tags + .v-line { margin-top: 12px; }
+.v-k { flex: 0 0 4.6em; padding-top: 1px; font-size: 11.5px; font-weight: 620; letter-spacing: 0.02em; color: var(--ink-3); }
+.v-v { flex: 1; min-width: 0; color: var(--ink-2); }
+.v-forms { font-family: var(--serif); font-size: 15px; }
+
+/* Frage-Antwort */
+.vocab .q { padding: 4px 0 8px; }
+.vocab .q + .q { border-top: 0; }
+.vocab .q-text {
+  position: relative;
+  margin: 0 0 18px;
+  padding: 22px 22px 20px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.vocab .answers { --answers-gap: 8px; grid-template-columns: 1fr; gap: var(--answers-gap); }
+.vocab .answer { min-height: 60px; padding: 10px 14px 10px 12px; font-size: 18px; }
+.vocab .answers.is-done .answer:not(.is-correct):not(.is-wrong) { opacity: 0.4; }
+.vocab .answer.has-explain {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-color: color-mix(in srgb, var(--correct) 28%, transparent);
+  box-shadow: inset 1px 0 0 var(--correct), inset -1px 0 0 var(--correct), inset 0 1px 0 var(--correct);
+}
+.quiz-explain {
+  margin-top: calc(-1 * var(--answers-gap));
+  padding: 4px 14px 13px 12px;
+  max-height: 240px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 2px solid var(--correct);
+  border-top: 0;
+  border-radius: 0 0 var(--r) var(--r);
+  background: var(--correct-soft);
+  animation: explain-open 0.28s var(--ease) both;
+}
+.quiz-explain .v-info { margin-top: 0; padding-top: 10px; border-top: 0; }
+.quiz-explain .v-tag { background: color-mix(in srgb, var(--correct) 14%, transparent); color: var(--ink-2); }
+@keyframes explain-open { from { max-height: 0; opacity: 0; } to { max-height: 240px; opacity: 1; } }
+
+/* Formularfelder (Meldungen bearbeiten) */
+.form-group { display: flex; flex-direction: column; gap: 14px; }
+.field-box { display: block; }
+.field-box-label { display: block; margin: 0 2px 6px; font-size: 13px; font-weight: 600; color: var(--ink-3); }
+.field-box textarea, .field-box input[type="text"], .field-box select {
+  width: 100%;
+  padding: 13px 16px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  background: var(--surface);
+  font-size: 15.5px;
+  font-family: var(--sans);
+}
+.field-box textarea { min-height: 70px; resize: vertical; }
+.field-box:focus-within .field-box-label { color: var(--accent); }
+.field-box input:focus, .field-box textarea:focus, .field-box select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+@media (max-width: 480px) {
+  .bar-inner { height: 48px; }
+  .screen.has-dock { padding-bottom: 14px; }
+  .dock { padding: 8px 0 calc(8px + env(safe-area-inset-bottom)); }
+  .dock .btn { height: 44px; }
+  .dock .btn-fasttrack { width: 44px; }
+  .dock-progress { font-size: 11px; }
+  .flash-face { padding: 18px 16px 16px; }
+  .vocab .q-text { padding: 18px 16px 16px; margin-bottom: 12px; }
+  .v-word { font-size: 26px; }
+  .v-answer { font-size: 25px; }
+  .vocab .answers { --answers-gap: 6px; }
+  .vocab .answer { min-height: 52px; padding: 8px 10px; font-size: 17px; }
+  .level-chip { right: 14px; }
 }
