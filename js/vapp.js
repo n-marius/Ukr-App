@@ -299,8 +299,13 @@ export function setupVocab(ctx) {
         await setPrio(key, prio, now);
         maps.prios.set(key, { key, prio, ts: now });
       };
-      if (fastTrack && first) {
-        // Sofort in Stufe 4: Prio niedrig; die Gegenrichtung ebenfalls, sofern sie noch keine Zuweisung hat.
+      if (fastTrack) {
+        // Blauer Knopf: Die Gegenrichtung wandert ebenfalls in Stufe 4 (ohne eigenes Statistik-Ereignis) …
+        if ((maps.levels.get(reverseKey)?.stufe ?? 1) < 4) {
+          await setLevel(reverseKey, 4, now);
+          maps.levels.set(reverseKey, { key: reverseKey, stufe: 4, ts: now });
+        }
+        // … und beide Karten bekommen Prio niedrig (die Gegenrichtung nur, sofern sie noch keine Zuweisung hat).
         await assign(card.key, "niedrig");
         if (!maps.prios.has(reverseKey)) await assign(reverseKey, "niedrig");
       } else if (!correct && trailingWrong(await getAllEvents(), card.key) === 3) {
