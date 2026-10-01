@@ -54,7 +54,7 @@ export function setupVocab(ctx) {
   const liveWords = () => applyOverridesAndFilter(allWords);
   const byKey = (list) => new Map(list.map((e) => [e.key, e]));
   const loadMaps = async () => ({ levels: byKey(await getAllLevels()), prios: byKey(await getAllPrios()) });
-  const getDir = async () => (await getSetting("vocabDir", "de-uk")) === "uk-de" ? "uk-de" : "de-uk";
+  const getDir = async () => { const d = await getSetting("vocabDir", "de-uk"); return d in DIRS ? d : "de-uk"; };
 
   // ---------- Art: Karteikarten oder Frage-Antwort ----------
 
@@ -229,7 +229,7 @@ export function setupVocab(ctx) {
     const nextBtn = type === "quiz" ? $("#next") : null;
 
     let i = 0;
-    let lastKey = null;
+    let lastWordId = null;
     let currentCard = null;
     let lastAnswered = null; // { card, stufe, result } – für „Zurück“
     let reviewing = false;
@@ -302,8 +302,9 @@ export function setupVocab(ctx) {
       if (fastTrack) {
         // Blauer Knopf: Die Gegenrichtung wandert ebenfalls in Stufe 4 (ohne eigenes Statistik-Ereignis) …
         if ((maps.levels.get(reverseKey)?.stufe ?? 1) < 4) {
-          await setLevel(reverseKey, 4, now);
-          maps.levels.set(reverseKey, { key: reverseKey, stufe: 4, ts: now });
+          // `noRest`: Die Gegenrichtung darf auch innerhalb von 24 Stunden in der Automatik erscheinen.
+          await setLevel(reverseKey, 4, now, true);
+          maps.levels.set(reverseKey, { key: reverseKey, stufe: 4, ts: now, noRest: true });
         }
         // … und beide Karten bekommen Prio niedrig (die Gegenrichtung nur, sofern sie noch keine Zuweisung hat).
         await assign(card.key, "niedrig");
@@ -371,7 +372,7 @@ export function setupVocab(ctx) {
       if (auto) {
         if (pool.length === 0) return null;
         const pendingKeyId = await getSetting(pendingKey, null);
-        return (pendingKeyId && pool.find((c) => c.key === pendingKeyId)) || pickWeightedCard(pool, maps.levels, maps.prios, lastKey);
+        return (pendingKeyId && pool.find((c) => c.key === pendingKeyId)) || pickWeightedCard(pool, maps.levels, maps.prios, lastWordId);
       }
       return i < queue.length ? queue[i] : null;
     }
@@ -388,7 +389,7 @@ export function setupVocab(ctx) {
       }
       dockNormal.hidden = false;
       currentCard = card;
-      lastKey = card.key;
+      lastWordId = card.wordId;
       if (auto) await setSetting(pendingKey, card.key); // gezogen, aber noch nicht bearbeitet: bleibt beim Verlassen gemerkt
       const stufeNow = stufeOf(card);
       armCard(card);

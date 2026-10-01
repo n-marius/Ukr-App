@@ -2,7 +2,7 @@
 // Warteschlange, gewichtete Auswahl (Automatik), automatische Prio-Regeln.
 import { effectivePrio } from "./vstore.js";
 
-export const DIRS = { "de-uk": "DE → UKR", "uk-de": "UKR → DE" };
+export const DIRS = { "de-uk": "DE → UKR", "uk-de": "UKR → DE", mixed: "Gemischt" };
 export const reverseDir = (dir) => (dir === "de-uk" ? "uk-de" : "de-uk");
 export const POS_LABEL = {
   Subst: "Substantiv", Verb: "Verb", Adj: "Adjektiv", Adv: "Adverb", Pron: "Pronomen", Num: "Zahlwort",
@@ -25,9 +25,16 @@ export function norm(s) {
 
 export const cardKey = (wordId, dir) => `${wordId}:${dir}`;
 
-// Jedes Wort ergibt zwei Karten (eine je Richtung).
+// Jedes Wort ergibt zwei Karten (eine je Richtung). „mixed“ liefert beide Richtungen; die Reihenfolge
+// wechselt zwischen den Richtungen und trennt die beiden Karten desselben Wortes weit voneinander.
 export function makeCards(words, dir) {
-  return words.map((word) => ({ key: cardKey(word.id, dir), wordId: word.id, dir, word }));
+  const one = (d) => words.map((word) => ({ key: cardKey(word.id, d), wordId: word.id, dir: d, word }));
+  if (dir !== "mixed") return one(dir);
+  const a = one("de-uk");
+  const b = one("uk-de");
+  const shift = Math.floor(b.length / 2);
+  const rot = [...b.slice(shift), ...b.slice(0, shift)];
+  return a.flatMap((c, i) => [c, rot[i]]);
 }
 
 // Anzeigetexte: `question` = was gefragt wird, `answer` = richtige Antwort (Betonung bleibt sichtbar).
@@ -141,12 +148,15 @@ function cardWeight(card, levelsByKey, priosByKey, now) {
   if (!level?.ts) return (STUFE_WEIGHT[stufe] ?? 1) * NEVER_SEEN_BONUS * prioWeight;
   const hours = (now - new Date(level.ts).getTime()) / 3_600_000;
   // Hohe Prio in Stufe 1 ignoriert die 24-Stunden-Sperre (sonst käme ein dreimal verfehltes Wort tagelang nicht).
-  if (hours < REST_HOURS && !(prio === "hoch" && stufe === 1)) return 0;
+  // Ebenso Karten, die per blauem Knopf der Gegenrichtung nach Stufe 4 gerückt sind (`noRest`).
+  if (hours < REST_HOURS && !(prio === "hoch" && stufe === 1) && !level.noRest) return 0;
   return (STUFE_WEIGHT[isStufe5Due(level, now) ? 2 : stufe] ?? 1) * recencyWeight(hours) * prioWeight;
 }
 
-export function pickWeightedCard(pool, levelsByKey, priosByKey, excludeKey) {
-  const candidates = pool.length > 1 ? pool.filter((c) => c.key !== excludeKey) : pool;
+// `excludeWordId`: das zuletzt gezogene Wort (gemischt: auch nicht in der Gegenrichtung direkt danach).
+export function pickWeightedCard(pool, levelsByKey, priosByKey, excludeWordId) {
+  const rest = pool.filter((c) => c.wordId !== excludeWordId);
+  const candidates = rest.length > 0 ? rest : pool;
   const now = Date.now();
   const weights = candidates.map((c) => cardWeight(c, levelsByKey, priosByKey, now));
   const total = weights.reduce((a, b) => a + b, 0);
