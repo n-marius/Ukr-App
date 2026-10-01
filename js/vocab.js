@@ -27,7 +27,9 @@ export const cardKey = (wordId, dir) => `${wordId}:${dir}`;
 
 // Jedes Wort ergibt zwei Karten (eine je Richtung). „mixed“ liefert beide Richtungen; die Reihenfolge
 // wechselt zwischen den Richtungen und trennt die beiden Karten desselben Wortes weit voneinander.
+// „write“ (Schreiben, nur DE → UKR) hat eigene Schlüssel `<id>:write` – Stufe/Prio unabhängig von den übrigen Karten.
 export function makeCards(words, dir) {
+  if (dir === "write") return words.map((word) => ({ key: cardKey(word.id, "write"), wordId: word.id, dir: "de-uk", track: "write", word }));
   const one = (d) => words.map((word) => ({ key: cardKey(word.id, d), wordId: word.id, dir: d, word }));
   if (dir !== "mixed") return one(dir);
   const a = one("de-uk");
@@ -177,4 +179,39 @@ export function trailingWrong(events, key) {
   let n = 0;
   for (let i = own.length - 1; i >= 0 && !own[i].correct; i--) n++;
   return n;
+}
+
+// ---------- Schreiben: Buchstaben ----------
+
+const UK_ALPHABET = "абвгґдеєжзиіїйклмнопрстуфхцчшщьюя";
+// Leicht verwechselbare Buchstaben – bevorzugte Falschbuchstaben.
+const CONFUSABLE = {
+  и: "іїй", і: "иїй", ї: "іиє", й: "иі", е: "єи", є: "еї", г: "ґх", ґ: "г", ш: "щж", щ: "шч", ч: "щц", ц: "чс",
+  ю: "уя", я: "аю", у: "юо", о: "ау", а: "оя", в: "фб", ф: "в", б: "пв", п: "бт", д: "т", т: "дп",
+  з: "сж", с: "зц", ж: "шз", к: "гх", х: "кг", л: "м", м: "лн", н: "м", р: "л",
+};
+
+// Zerlegt die Form mit Betonung in Felder: Buchstaben (zum Anklicken; Anzeige mit Betonungszeichen),
+// feste Zeichen (Satzzeichen, Apostroph, Bindestrich – schon ausgefüllt) und Wortlücken.
+export function writeSlots(word) {
+  const a = (word.a || word.uk).normalize("NFC");
+  const slots = [];
+  for (const ch of a) {
+    if (ch === "\u0301") { if (slots.length) slots[slots.length - 1].show += ch; continue; }
+    if (ch === " ") slots.push({ kind: "gap" });
+    else if (/\p{L}/u.test(ch)) slots.push({ kind: "letter", letter: ch.toLowerCase(), show: ch });
+    else slots.push({ kind: "fixed", show: ch });
+  }
+  return slots;
+}
+
+// Auswahl: alle richtigen Buchstaben (je Vorkommen eine Kachel) plus einige falsche, die im Wort nicht vorkommen.
+export function writeTiles(slots) {
+  const correct = slots.filter((s) => s.kind === "letter").map((s) => s.letter);
+  const inWord = new Set(correct);
+  const want = Math.min(6, Math.max(3, Math.round(correct.length / 3)));
+  const wrong = new Set();
+  for (const c of shuffle([...inWord])) for (const x of CONFUSABLE[c] ?? "") if (!inWord.has(x) && UK_ALPHABET.includes(x) && wrong.size < Math.ceil(want / 2)) wrong.add(x);
+  for (const x of shuffle([...UK_ALPHABET])) { if (wrong.size >= want) break; if (!inWord.has(x)) wrong.add(x); }
+  return shuffle([...correct.map((letter) => ({ letter, ok: true })), ...[...wrong].map((letter) => ({ letter, ok: false }))]);
 }

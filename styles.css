@@ -60,6 +60,9 @@
   /* Helleres Blau für „Direkt in Stufe 4“ und Prio „niedrig“ (Vokabeln) */
   --blue: #3a6cc6;
   --blue-soft: rgba(58, 108, 198, 0.1);
+  /* Gelb für „Buchstabe vorgesagt“ (Schreiben) */
+  --hint: #a8740c;
+  --hint-soft: #fcf3dc;
 
   --btn-bg: #111113;
   --btn-bg-hover: #2a2a2e;
@@ -106,6 +109,8 @@
     --wrong-soft: rgba(240, 113, 103, 0.13);
     --blue: #86a9ec;
     --blue-soft: rgba(134, 169, 236, 0.14);
+    --hint: #e8b84a;
+    --hint-soft: rgba(232, 184, 74, 0.14);
 
     --btn-bg: #f3f3f4;
     --btn-bg-hover: #ffffff;
@@ -1060,8 +1065,59 @@ button.row:active:not(:disabled), label.row:active { background: var(--surface-2
 .field-box:focus-within .field-box-label { color: var(--accent); }
 .field-box input:focus, .field-box textarea:focus, .field-box select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
+/* Schreiben: Lösungskästchen und Buchstabenkacheln */
+.w-sub { margin: -18px 0 0; font-size: 13.5px; color: var(--ink-3); }
+.w-sol { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 16px; margin: 2px 0 22px; }
+.w-word { display: flex; gap: 5px; max-width: 100%; min-width: 0; }
+.w-box {
+  width: 36px;
+  flex: 0 1 auto;
+  min-width: 15px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--ink);
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.w-box.is-fixed { width: auto; min-width: 8px; border-color: transparent; background: none; color: var(--ink-3); }
+.w-box.is-ok { background: var(--correct-soft); border-color: var(--correct); box-shadow: inset 0 0 0 1px var(--correct); color: var(--correct); }
+.w-box.is-help { background: var(--hint-soft); border-color: var(--hint); box-shadow: inset 0 0 0 1px var(--hint); color: var(--hint); }
+.w-box.is-lost { background: var(--wrong-soft); border-color: var(--wrong); box-shadow: inset 0 0 0 1px var(--wrong); color: var(--wrong); }
+.w-pool { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.w-tile {
+  width: 46px;
+  height: 50px;
+  border-radius: var(--r);
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+  transition: opacity 0.2s ease, border-color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+}
+.w-tile:hover:not(:disabled) { border-color: var(--ink-3); background: var(--hover); }
+.w-tile:active:not(:disabled) { transform: scale(0.95); }
+.w-tile.is-used { opacity: 0.28; }
+.w-tile.is-flash { animation: tile-wrong 0.6s ease; }
+@keyframes tile-wrong {
+  0%, 100% { background: var(--surface); border-color: var(--line-2); color: var(--ink); }
+  25%, 55% { background: var(--wrong-soft); border-color: var(--wrong); color: var(--wrong); box-shadow: inset 0 0 0 1px var(--wrong); }
+}
+.w-info { min-height: 0; animation: explain-open 0.28s var(--ease) both; }
+.w-info .v-info { margin-top: 0; padding-top: 0; border-top: 0; }
+
 @media (max-width: 480px) {
   .bar-inner { height: 48px; }
+  .w-box { width: 32px; height: 42px; font-size: 20px; }
+  .w-word { gap: 3px; }
+  .w-tile { width: 42px; height: 46px; font-size: 20px; }
   .screen.has-dock { padding-bottom: 14px; }
   .dock { padding: 8px 0 calc(8px + env(safe-area-inset-bottom)); }
   .dock .btn { height: 44px; }
