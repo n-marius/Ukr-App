@@ -2,7 +2,7 @@
 // content/index.json und content/chat/index.json: network-first mit Cache-Fallback;
 // alle gelisteten Texte/Chats werden vorab gecacht und bei geänderter Content-Version neu geladen
 // (Vokabeln: der Index enthält bereits alle Wörter).
-const APP_VERSION = "3.6.0";
+const APP_VERSION = "3.6.1";
 const SHELL_CACHE = `ukr-shell-${APP_VERSION}`;
 const CONTENT_CACHE = "ukr-content";
 
@@ -35,8 +35,8 @@ const SHELL_FILES = [
   "fonts/literata-cyrillic-opsz-normal.woff2",
   "fonts/inter-latin-wght-normal.woff2",
   "fonts/inter-cyrillic-wght-normal.woff2",
-  "icons/icon-180.png",
-  "icons/icon-192.png",
+  "icons/icon-180-v2.png",
+  "icons/icon-192-v2.png",
 ];
 
 self.addEventListener("install", (event) => {

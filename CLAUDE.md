@@ -11,3 +11,4 @@
 - Vor dem Merge die App lokal im Browser durchspielen (Playwright, iPhone- und Laptop-Breite).
 - Ablauf: Feature-Branch → Pull Request → vom Assistenten selbst mergen (Squash). Der Nutzer hat automatisches Mergen ausdrücklich freigegeben. `main` wird per GitHub Pages ausgeliefert.
 - Der Nutzer ist kein Programmierer: Anleitungen Schritt für Schritt, ohne Fachkürzel.
+- App-Icon ändern: immer neue Dateinamen vergeben (`icons/icon-*-v2.png` → `-v3` …) und `index.html`, `manifest.webmanifest`, `sw.js` anpassen – sonst zeigt iOS weiter das alte Symbol (SPEC.md).
