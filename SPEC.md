@@ -258,3 +258,5 @@ Vokabeln → „Schreiben“ → „Vokabeln“ (aktiv) bzw. „Sätze“ (ausge
 
 ### 12.10 App-Icon
 Blau (Verlauf) mit goldenem „Ї“ (Literata) und kurzem Goldstrich, erzeugt aus `tools/icon/icon-vorlage.html` per Browser-Screenshot (512, 192, 180 px; maskable mit kleinerem Zeichen).
+
+**Icon-Dateinamen:** Wird das App-Icon geändert, bekommen die Dateien einen neuen Namen (`icons/icon-*-v2.png`, beim nächsten Mal `-v3` …) und alle Verweise (`index.html`, `manifest.webmanifest`, `sw.js`) werden angepasst. iOS merkt sich Home-Bildschirm-Symbole nach Adresse; bei gleichem Dateinamen erscheint sonst weiter das alte Symbol.
