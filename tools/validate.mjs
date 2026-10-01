@@ -112,7 +112,7 @@ for (const entry of index.texts ?? []) {
 // Version muss steigen, sobald sich content/ gegenüber dem letzten Commit geändert hat.
 try {
   const git = (cmd) => execSync(cmd, { cwd: root, stdio: ["ignore", "pipe", "ignore"] }).toString();
-  const changed = git("git status --porcelain -- content ':!content/chat' ':!content/_inbox'").trim() !== "";
+  const changed = git("git status --porcelain -- content ':!content/chat' ':!content/_inbox' ':!content/vokabeln'").trim() !== "";
   if (changed) {
     const previous = JSON.parse(git("git show HEAD:content/index.json")).version;
     if (!(index.version > previous)) {

@@ -22,14 +22,22 @@
 /js/stats.js        Statistik, Diagramme
 /js/store.js        lokale Daten (IndexedDB), Export/Import
 /js/sync.js         Gist-Sync
+/js/vapp.js         Vokabelfunktion: Screens, Lernablauf, Meldungen
+/js/vocab.js        Vokabellogik: Karten, Falschantworten, Warteschlange, Automatik
+/js/vcards.js       Anzeige Karteikarte / Frage-Antwort der Vokabeln
+/js/vstore.js       Daten der Vokabeln (IndexedDB)
+/js/prio.js         Prio-Symbol
 /content/index.json
 /content/A1/a1-0001.json …
 /content/chat/index.json
 /content/chat/A1/a1-0001.json …
-/content/_inbox/    Eingang für neue Texte/Chats (siehe README dort)
+/content/vokabeln/   Vokabellisten liste-NNNN.json (Quelle) und index.json (erzeugt)
+/content/_inbox/    Eingang für neue Texte/Chats/Vokabeln (siehe README dort)
 /fonts/             Literata, Inter (woff2, OFL)
 /tools/validate.mjs Prüfskript für Texte (Node)
 /tools/validate-chats.mjs Prüfskript für Chats (Node)
+/tools/add-vocab.mjs, build-vocab-index.mjs, validate-vocab.mjs, vocab-lib.mjs  Import, Index und Prüfung der Vokabeln
+/docs/VOKABEL-VORLAGE.md Vorlage/Format für neue Vokabeln
 /tools/build-index.mjs erzeugt content/index.json aus den Textdateien
 /tools/build-chat-index.mjs erzeugt content/chat/index.json aus den Chat-Dateien
 /docs/TEXT-VORLAGE.md Vorlage zum Erzeugen neuer Texte in einem normalen Chat
@@ -208,3 +216,35 @@ Prüft: `start` existiert in `nodes`; jeder `next` zeigt auf einen existierenden
 
 ## 11. Offen (separat zu klären)
 - Themenliste (wächst mit neuen Texten/Chats; bisherige Kategorien siehe `docs/TEXT-VORLAGE.md`).
+
+## 12. Vokabeln
+
+Eine Person, kein Nutzerwechsel. Übernommen aus der Lernapp (Leitner-Stufen, Automatik, Prio, Zurück, Melden), angepasst auf Wortschatz.
+
+### 12.1 Vokabelformat
+`content/vokabeln/liste-NNNN.json` (Liste von Wörtern, IDs `v0001` …, vergeben von `tools/add-vocab.mjs`); `content/vokabeln/index.json` (erzeugt, enthält alle Wörter, `version` wächst bei Änderung). Felder und Autorenregeln: `docs/VOKABEL-VORLAGE.md`: `uk`, `a` (mit Betonung), `de`, `pos` (Pflicht); `alt`, `gen`, `asp`, `forms`, `zusatz`, `korrigiert` optional. Keine Prio, keine Kategorien, keine Falschantworten. Prüfung: `tools/validate-vocab.mjs` (Pflichtfelder, unbekannte Felder, Betonung nur auf Vokalen und konsistent zu `uk`, Doppelte, Version erhöht).
+
+### 12.2 Karten und Fortschritt
+Jedes Wort ergibt zwei Karten: DE → UKR und UKR → DE (Schlüssel `<id>:de-uk` / `<id>:uk-de`). Stufe (1–5), Prio und „zuletzt bearbeitet“ werden je Karte, also je Richtung, geführt und gelten für Karteikarten und Frage-Antwort gemeinsam. Stufenlogik wie Lernapp (richtig +1, falsch → 1, blauer Knopf → 4 – dabei wandert auch die Gegenrichtung in Stufe 4, sofern sie darunter steht; diese Karte unterliegt keiner 24-Stunden-Sperre in der Automatik (Feld `noRest` an der Stufe) –, nur bei erster Bearbeitung der Karte; in Frage-Antwort nur nach richtiger Antwort).
+
+### 12.3 Ablauf
+Start → „Vokabeln“ → Karteikarten / Frage-Antwort (Frage-Antwort ab 4 Vokabeln) → Auswahlseite: Schalter DE → UKR / UKR → DE / Gemischt (Wahl wird lokal gemerkt; „Gemischt“ nimmt beide Richtungen jedes Wortes in einen Pool: Stufenwahl, Warteschlange und Automatik arbeiten mit allen Karten beider Richtungen, die Richtung wechselt von Karte zu Karte, dasselbe Wort kommt in der Automatik nicht zweimal direkt hintereinander; Stufe, Prio und Rückschau gelten weiter je Karte), darunter drei Prio-Filter-Symbole in Kartengröße (24 px; mindestens eine aktiv; nur für diesen Lauf) mit Kartenzahl, darunter Manuell (→ Stufenwahl) / Automatisch. Auf der Seite Karteikarten/Frage-Antwort erscheint, sobald Meldungen offen sind, die Zeile „Gemeldete Vokabeln prüfen“ (12.6). Im Lauf: „Zurück“-Rückschau, Flagge, Tageszähler („x heute bearbeitet“, alle Modi und beide Richtungen) wie in der Lernapp.
+
+### 12.4 Anzeige
+- **Karteikarte:** oben die Frage (DE-Wort bzw. ukrainisches Wort mit Betonung), Prio-Symbol oben rechts, im Automatikmodus „Stufe n“. Antippen deckt die Antwort auf; darunter stehen die Zusatzinfos: Marken für Wortart/Genus/Aspekt, „Auch“ (`alt`), „Formen“ (`forms`), „Hinweis“ (`zusatz`) – abgesetzt durch eine feine Linie wie die Erklärung der Lernapp.
+- **Frage-Antwort:** Frage, vier Antworten untereinander (A–D), „Auflösen“/„Weiter“; die Zusatzinfos klappen aus der richtigen Antwort aus.
+- **Doppeldeutige Wörter:** Kommt der Fragetext (in der gewählten Richtung) bei mehreren Wörtern vor (z. B. „Schloss“, „коса“), zeigt schon die Frage den `zusatz` als Hinweis; sonst erscheint er erst bei der Antwort.
+
+### 12.5 Falschantworten (nur per Skript, `js/vocab.js` `pickDistractors`)
+Bei jeder Frage werden drei Wörter aus dem Bestand gezogen, bevorzugt gleiche Wortart und – bei Substantiven/Verben – gleiches Genus bzw. gleicher Aspekt, sonst nur gleiche Wortart, zuletzt beliebig. Ausgeschlossen sind Wörter mit demselben ukrainischen Wort (Homonym) oder einer gemeinsamen deutschen Bedeutung (`de`/`alt`, verglichen ohne Betonung, Groß-/Kleinschreibung, Artikel, „sich“, Klammern), und die vier Antwortfelder sind untereinander verschieden. Gemeldete oder gelöschte Wörter kommen nicht vor.
+
+### 12.6 Automatik, Prio, Melden
+- **Automatik:** Gewichte wie Lernapp (Stufe, Zeit, Nie-gesehen-Bonus, Prio; 24-h-Sperre); **Ausnahme:** Karten mit Prio hoch in Stufe 1 ignorieren die 24-h-Sperre. Eine gezogene, unbeantwortete Karte bleibt gemerkt (`vocabAutoPending_<art>_<richtung>`).
+- **Prio:** Grundwert immer normal (nicht in der Wortliste). Antippen des Symbols wechselt hoch → normal → niedrig. Automatisch: Erste Bearbeitung einer Karte per blauem Knopf → diese Karte niedrig, die Gegenrichtung ebenfalls, sofern sie noch keinen Prio-Eintrag hat. Drei Fehler in Folge bei derselben Karte (genau beim dritten) → diese Karte und die Gegenrichtung hoch.
+- **Melden:** Flagge im Lauf (Ukrainisch / Deutsch / Zusatzinfo + Text). Das Wort ist in beiden Richtungen ausgeblendet, bis die Meldung unter „Gemeldete Vokabeln prüfen“ erledigt ist: Bearbeiten (Korrektur `vEdits`), „Doch korrekt“ (wieder freigeben), Löschen, Überspringen; Export der offenen Meldungen als Textdatei.
+
+### 12.7 Datenmodell und Sync
+IndexedDB (Version 3): `vLevels` `{key,stufe,ts,noRest?}`, `vPrios` `{key,prio,ts}`, `vEvents` `{id,ts,cardId,correct,mode}`, `vFlags` `{id,wordId,field,note,ts,status}`, `vEdits` `{wordId,ts,deleted,…Felder}`. Im Gist `stats.json` zusätzliches Feld `vocab` `{resetAt, levelsResetAt, levels, prios, events, flags, edits}`; Zusammenführung: je Schlüssel gewinnt der spätere Zeitstempel, Ereignisse nach `id`. Alles läuft über `vstore.applyOverridesAndFilter` (Korrekturen, Löschungen, Meldungen); dort gehören künftige Änderungen hin. Einstellungen: „Alle Vokabeln auf Stufe 1 zurücksetzen“ (Prios bleiben) und „Vokabel-Statistik löschen“, beide über Zeitgrenze (`vocabLevelsResetAt`/`vocabResetAt`).
+
+### 12.8 Statistik
+Statistik → Reiter „Vokabeln“: Diagramm „Karten pro Tag“ (UTC-Tage vom ersten Ereignis bis heute, Ø der letzten 14 Tage).

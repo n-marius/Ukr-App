@@ -1,13 +1,16 @@
 // App-Shell: cache-first, Cache-Name enthält die App-Version (bei jeder Änderung erhöhen!).
 // content/index.json und content/chat/index.json: network-first mit Cache-Fallback;
-// alle gelisteten Texte/Chats werden vorab gecacht und bei geänderter Content-Version neu geladen.
-const APP_VERSION = "3.3.0";
+// alle gelisteten Texte/Chats werden vorab gecacht und bei geänderter Content-Version neu geladen
+// (Vokabeln: der Index enthält bereits alle Wörter).
+const APP_VERSION = "3.5.0";
 const SHELL_CACHE = `ukr-shell-${APP_VERSION}`;
 const CONTENT_CACHE = "ukr-content";
 
 const INDEXES = [
   { url: "content/index.json", listKey: "texts", versionKey: "text-content-version" },
   { url: "content/chat/index.json", listKey: "chats", versionKey: "chat-content-version" },
+  // Vokabeln: der Index enthält bereits alle Wörter (keine Einzeldateien)
+  { url: "content/vokabeln/index.json", listKey: "words", versionKey: "vocab-content-version", inline: true },
 ];
 
 const SHELL_FILES = [
@@ -23,6 +26,11 @@ const SHELL_FILES = [
   "js/store.js",
   "js/sync.js",
   "js/tokens.js",
+  "js/prio.js",
+  "js/vapp.js",
+  "js/vcards.js",
+  "js/vocab.js",
+  "js/vstore.js",
   "fonts/literata-latin-opsz-normal.woff2",
   "fonts/literata-cyrillic-opsz-normal.woff2",
   "fonts/inter-latin-wght-normal.woff2",
@@ -95,7 +103,7 @@ async function refreshContent(idx, indexResponse) {
   const changed = !stored || (await stored.text()) !== String(index.version);
 
   await cache.put(idx.url, copy);
-  await Promise.all((index[idx.listKey] ?? []).map(async (item) => {
+  await Promise.all((idx.inline ? [] : index[idx.listKey] ?? []).map(async (item) => {
     const url = `${base}${item.file}`;
     if (!changed && (await cache.match(url))) return;
     const res = await fetch(url, { cache: "reload" });

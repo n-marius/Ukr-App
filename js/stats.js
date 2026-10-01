@@ -138,3 +138,78 @@ export function formatDuration(sec) {
   const s = sec % 60;
   return m > 0 ? `${m}:${String(s).padStart(2, "0")} min` : `${s} s`;
 }
+
+// ---------- Vokabeln: Karten pro Tag ----------
+
+const dayKey = (iso) => iso.slice(0, 10); // UTC-Datum wie in der Lernapp
+
+// Zahl der heute bearbeiteten Karten (alle Modi, beide Richtungen).
+export function countToday(events) {
+  const today = dayKey(new Date().toISOString());
+  return events.filter((e) => dayKey(e.ts) === today).length;
+}
+
+const DAYS_AVG = 14;
+
+export function renderVocabStats(container, events) {
+  container.innerHTML = "";
+  if (events.length === 0) {
+    container.innerHTML = `
+      <div class="empty">
+        <p class="empty-title">Noch keine Daten</p>
+        <p class="empty-sub">Sobald Vokabeln bearbeitet werden, erscheint hier der Verlauf.</p>
+      </div>`;
+    return;
+  }
+  const todayKey = dayKey(new Date().toISOString());
+  const first = events.map((e) => dayKey(e.ts)).reduce((m, k) => (k < m ? k : m), todayKey);
+  const days = [];
+  for (let t = Date.parse(first); t <= Date.parse(todayKey); t += 86_400_000) days.push(new Date(t).toISOString().slice(0, 10));
+  const counts = new Map();
+  for (const e of events) counts.set(dayKey(e.ts), (counts.get(dayKey(e.ts)) ?? 0) + 1);
+  const values = days.map((d) => counts.get(d) ?? 0);
+  const recent = values.slice(-DAYS_AVG);
+  const a = recent.reduce((s, v) => s + v, 0) / recent.length;
+
+  const el = document.createElement("section");
+  el.className = "metric";
+  el.innerHTML = `
+    <div class="metric-head">
+      <span class="metric-name">Karten pro Tag</span>
+      <span class="metric-value">${values.at(-1)}<span class="metric-unit">heute</span></span>
+    </div>
+    <div class="metric-sub">Ø ${a.toFixed(1).replace(".", ",")} pro Tag · ${recent.length === 1 ? "heute" : `letzte ${recent.length} Tage`} · ${events.length} ${events.length === 1 ? "Karte" : "Karten"} insgesamt</div>`;
+  const svg = document.createElementNS(NS, "svg");
+  svg.classList.add("chart");
+  el.appendChild(svg);
+  container.appendChild(el);
+  drawDayChart(svg, values, days.map((d) => d.slice(8, 10)));
+}
+
+function drawDayChart(svg, values, labels) {
+  const width = Math.max(svg.clientWidth, 200);
+  const height = svg.clientHeight || 104;
+  const padL = 2, padR = 28, padT = 8, padB = 16;
+  const max = niceMax(Math.max(...values, 1));
+  const plotW = width - padL - padR;
+  const plotH = height - padT - padB;
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  const x = (i) => (values.length === 1 ? padL + plotW / 2 : padL + (i / (values.length - 1)) * plotW);
+  const y = (v) => padT + plotH - (v / max) * plotH;
+
+  for (const t of [0, max / 2, max]) {
+    add(svg, "line", { x1: padL, x2: padL + plotW, y1: y(t), y2: y(t), class: "grid" });
+    add(svg, "text", { x: width, y: y(t) + 3.5, "text-anchor": "end", class: "axis" }).textContent = formatTick(t);
+  }
+  const pts = values.map((v, i) => [x(i), y(v)]);
+  if (pts.length > 1) {
+    const d = pts.map(([px, py], i) => `${i ? "L" : "M"}${px.toFixed(1)},${py.toFixed(1)}`).join("");
+    add(svg, "path", { d: `${d}L${pts.at(-1)[0].toFixed(1)},${y(0)}L${pts[0][0].toFixed(1)},${y(0)}Z`, class: "area" });
+    add(svg, "path", { d, class: "line" });
+  }
+  pts.forEach(([px, py], i) => {
+    const isLast = i === pts.length - 1;
+    add(svg, "circle", { cx: px, cy: py, r: isLast ? 4 : 2.5, class: isLast ? "dot-last" : "dot" });
+    if (i % Math.ceil(labels.length / 7 || 1) === 0 || isLast) add(svg, "text", { x: px, y: height - 2, "text-anchor": "middle", class: "axis" }).textContent = labels[i] ?? "";
+  });
+}

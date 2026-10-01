@@ -1,9 +1,11 @@
 // Lokale Datenhaltung (IndexedDB): abgeschlossene Erstbearbeitungen, Einstellungen, Chat-Startzähler.
 const DB_NAME = "ukr-app";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_ATTEMPTS = "attempts";
 const STORE_SETTINGS = "settings";
 const STORE_CHAT_STARTS = "chatStarts";
+// Vokabeln (js/vstore.js): Stufen, Prios, Ereignisse, Meldungen, Korrekturen.
+export const V_STORES = { levels: "vLevels", prios: "vPrios", events: "vEvents", flags: "vFlags", edits: "vEdits" };
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -22,6 +24,10 @@ function openDb() {
       if (!db.objectStoreNames.contains(STORE_CHAT_STARTS)) {
         db.createObjectStore(STORE_CHAT_STARTS, { keyPath: "id" });
       }
+      for (const [kind, name] of Object.entries(V_STORES)) {
+        if (db.objectStoreNames.contains(name)) continue;
+        db.createObjectStore(name, { keyPath: { levels: "key", prios: "key", events: "id", flags: "id", edits: "wordId" }[kind] });
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -34,7 +40,7 @@ function getDb() {
   return dbPromise;
 }
 
-async function tx(storeName, mode) {
+export async function tx(storeName, mode) {
   const db = await getDb();
   const t = db.transaction(storeName, mode);
   return { t, store: t.objectStore(storeName) };
