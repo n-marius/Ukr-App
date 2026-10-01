@@ -3,7 +3,7 @@
 // Die Rahmenfunktionen (render, Dialoge, Hinweis) kommen aus js/app.js über `ctx`.
 import { escapeHtml } from "./tokens.js";
 import { prioToggle } from "./prio.js";
-import { renderFlashcard, renderQuizCard, renderQuizCardReview, infoHtml } from "./vcards.js";
+import { renderFlashcard, renderQuizCard, renderQuizCardReview, renderWriteCard, renderWriteReview, infoHtml } from "./vcards.js";
 import {
   DIRS, reverseDir, makeCards, buildQueue, countByStufe, countDueStufe5, filterByPrio, pickWeightedCard,
   pickDistractors, shuffle, isAmbiguous, trailingWrong, ukText, stripAccent, POS_LABEL,
@@ -40,7 +40,8 @@ const dockQuiz = (icon) => `
     <span class="dock-progress" id="progress"></span>
   </div>`;
 
-const TYPE_LABEL = { cards: "Karteikarten", quiz: "Frage-Antwort" };
+const TYPE_LABEL = { cards: "Karteikarten", quiz: "Frage-Antwort", write: "Schreiben" };
+const dirLabel = (dir) => (dir === "write" ? "DE → UKR" : DIRS[dir]);
 const FLAG_FIELDS = { uk: "Ukrainisch", de: "Deutsch", info: "Zusatzinfo" };
 
 export function setupVocab(ctx) {
@@ -85,6 +86,12 @@ export function setupVocab(ctx) {
             <span class="mode-title">Frage-Antwort</span>
             <span class="mode-text">Vier Möglichkeiten, eine richtig</span>
           </button>
+          <button class="mode" id="mode-write" ${n ? "" : "disabled"}>
+            <span class="mode-icon">${ICON.pen}</span>
+            ${ICON.arrow}
+            <span class="mode-title">Schreiben</span>
+            <span class="mode-text">Wörter und Sätze Buchstabe für Buchstabe</span>
+          </button>
         </div>
         ${open.length ? `
         <h2 class="label">Meldungen</h2>
@@ -98,13 +105,44 @@ export function setupVocab(ctx) {
     on("#back", "click", showHome);
     on("#mode-cards", "click", () => showPick("cards"));
     on("#mode-quiz", "click", () => showPick("quiz"));
+    on("#mode-write", "click", showWriteMenu);
     on("#to-flags", "click", showFlagReview);
+  }
+
+  // ---------- Schreiben: Vokabeln oder Sätze ----------
+
+  async function showWriteMenu() {
+    const n = (await liveWords()).length;
+    render("vocab-write", {
+      left: backButton(),
+      body: `
+        <header class="page-head">
+          <p class="kicker">Vokabeln · Schreiben</p>
+          <h1 class="page-title">Was möchtest du schreiben?</h1>
+        </header>
+        <div class="modes">
+          <button class="mode" id="write-words" ${n ? "" : "disabled"}>
+            <span class="mode-icon">${ICON.cards}</span>
+            ${ICON.arrow}
+            <span class="mode-title">Vokabeln</span>
+            <span class="mode-text">Deutsches Wort, ukrainisch zusammensetzen</span>
+          </button>
+          <button class="mode" disabled>
+            <span class="mode-icon">${ICON.text}</span>
+            <span class="badge">In Vorbereitung</span>
+            <span class="mode-title">Sätze</span>
+            <span class="mode-text">Ganze Sätze schreiben</span>
+          </button>
+        </div>`,
+    });
+    on("#back", "click", showTypes);
+    on("#write-words", "click", () => showPick("write"));
   }
 
   // ---------- Richtung, Prioritäten, manuell oder automatisch ----------
 
   async function showPick(type, allowed = new Set(PRIOS)) {
-    const dir = await getDir();
+    const dir = type === "write" ? "write" : await getDir();
     const { prios } = await loadMaps();
     const cards = filterByPrio(makeCards(await liveWords(), dir), prios, allowed);
     const n = cards.length;
@@ -116,9 +154,10 @@ export function setupVocab(ctx) {
           <p class="kicker">Vokabeln · ${TYPE_LABEL[type]}</p>
           <h1 class="page-title">Wie möchtest du üben?</h1>
         </header>
+        ${type === "write" ? `<p class="page-sub w-sub">Deutsch → Ukrainisch. Eigener Lernstand, unabhängig von Karteikarten und Frage-Antwort.</p>` : `
         <div class="seg" id="dir-seg" role="tablist" aria-label="Richtung">
           ${Object.entries(DIRS).map(([d, label]) => `<button role="tab" data-dir="${d}" class="${d === dir ? "is-active" : ""}">${label}</button>`).join("")}
-        </div>
+        </div>`}
         <div class="prio-row">
           <div class="prio-toggle" role="group" aria-label="Prioritäten">${PRIOS.map((p) => prioToggle(p, allowed.has(p))).join("")}</div>
           <span class="prio-count">${plural(n, "Karte", "Karten")}</span>
@@ -139,7 +178,7 @@ export function setupVocab(ctx) {
         </div>`,
     });
 
-    on("#back", "click", showTypes);
+    on("#back", "click", type === "write" ? showWriteMenu : showTypes);
     root.querySelectorAll("#dir-seg [data-dir]").forEach((b) =>
       b.addEventListener("click", async () => { await setSetting("vocabDir", b.dataset.dir); showPick(type, allowed); })
     );
@@ -179,7 +218,7 @@ export function setupVocab(ctx) {
       left: backButton(),
       body: `
         <header class="page-head">
-          <p class="kicker">Vokabeln · ${TYPE_LABEL[type]} · ${DIRS[dir]}</p>
+          <p class="kicker">Vokabeln · ${TYPE_LABEL[type]} · ${dirLabel(dir)}</p>
           <h1 class="page-title">Stufe wählen</h1>
           <p class="page-sub">Neue Karten stehen in Stufe 1. Richtig beantwortet wandern sie eine Stufe höher, falsch beantwortet zurück auf Stufe 1.</p>
         </header>
@@ -210,7 +249,7 @@ export function setupVocab(ctx) {
     render(`vocab-${type}${auto ? "-auto" : ""}`, {
       left: backButton("Modus verlassen"),
       mid: `<button class="pill-btn" id="prev-btn" disabled>Zurück</button>`,
-      right: `<button class="icon-btn" id="flag-btn" aria-label="Vokabel melden">${ICON.flag}</button><span class="bar-crumb"><b>${auto ? "Automatisch" : `Stufe ${stufe}`}</b> · ${DIRS[dir]}</span>`,
+      right: `<button class="icon-btn" id="flag-btn" aria-label="Vokabel melden">${ICON.flag}</button><span class="bar-crumb"><b>${auto ? "Automatisch" : `Stufe ${stufe}`}</b> · ${type === "write" ? "Schreiben" : DIRS[dir]}</span>`,
       body: `<div id="stage" class="vocab"></div>`,
       dock: type === "cards" ? dockCards(ICON.up) : dockQuiz(ICON.up),
     });
@@ -226,7 +265,7 @@ export function setupVocab(ctx) {
     const fastBtn = $("#fasttrack");
     const wrongBtn = type === "cards" ? $("#wrong") : null;
     const richtigBtn = type === "cards" ? $("#richtig") : null;
-    const nextBtn = type === "quiz" ? $("#next") : null;
+    const nextBtn = type !== "cards" ? $("#next") : null;
 
     let i = 0;
     let lastWordId = null;
@@ -264,6 +303,15 @@ export function setupVocab(ctx) {
           ...common(card),
           onRevealed: () => { wrongBtn.disabled = false; richtigBtn.disabled = false; fastBtn.disabled = false; },
         });
+      } else if (type === "write") {
+        outcome = null;
+        nextBtn.disabled = false;
+        nextBtn.textContent = "Auflösen";
+        quizController = renderWriteCard(stage, card, {
+          ...common(card),
+          // Ein Fehler gilt als bestanden, der blaue Knopf aber nur ganz ohne Fehler.
+          onAnswered: (result) => { outcome = result; nextBtn.textContent = "Weiter"; fastBtn.disabled = !(result.correct && result.mistakes === 0); },
+        });
       } else {
         outcome = null;
         nextBtn.disabled = false;
@@ -294,25 +342,26 @@ export function setupVocab(ctx) {
       maps.levels.set(card.key, { key: card.key, stufe: newStufe, ts: now });
       await addEvent({ id: crypto.randomUUID(), ts: now, cardId: card.key, correct, mode: type });
 
-      const reverseKey = `${card.wordId}:${reverseDir(card.dir)}`;
+      // Schreiben hat keine Gegenrichtung (eigener Lernstand) – dort wirken die Regeln nur auf die Karte selbst.
+      const reverseKey = card.track === "write" ? null : `${card.wordId}:${reverseDir(card.dir)}`;
       const assign = async (key, prio) => {
         await setPrio(key, prio, now);
         maps.prios.set(key, { key, prio, ts: now });
       };
       if (fastTrack) {
         // Blauer Knopf: Die Gegenrichtung wandert ebenfalls in Stufe 4 (ohne eigenes Statistik-Ereignis) …
-        if ((maps.levels.get(reverseKey)?.stufe ?? 1) < 4) {
+        if (reverseKey && (maps.levels.get(reverseKey)?.stufe ?? 1) < 4) {
           // `noRest`: Die Gegenrichtung darf auch innerhalb von 24 Stunden in der Automatik erscheinen.
           await setLevel(reverseKey, 4, now, true);
           maps.levels.set(reverseKey, { key: reverseKey, stufe: 4, ts: now, noRest: true });
         }
         // … und beide Karten bekommen Prio niedrig (die Gegenrichtung nur, sofern sie noch keine Zuweisung hat).
         await assign(card.key, "niedrig");
-        if (!maps.prios.has(reverseKey)) await assign(reverseKey, "niedrig");
+        if (reverseKey && !maps.prios.has(reverseKey)) await assign(reverseKey, "niedrig");
       } else if (!correct && trailingWrong(await getAllEvents(), card.key) === 3) {
         // Dreimal in Folge falsch: Prio hoch, auch für die Gegenrichtung.
         await assign(card.key, "hoch");
-        await assign(reverseKey, "hoch");
+        if (reverseKey) await assign(reverseKey, "hoch");
       }
       sync();
     }
@@ -345,6 +394,7 @@ export function setupVocab(ctx) {
       const { card, result } = lastAnswered;
       const base = { ...common(card), stufe: auto ? lastAnswered.stufe : undefined };
       if (type === "cards") renderFlashcard(stage, card, { ...base, revealed: true });
+      else if (type === "write") renderWriteReview(stage, card, { ...base, states: result.states });
       else renderQuizCardReview(stage, card, { ...base, options: result.options, chosenId: result.chosenId });
     });
 

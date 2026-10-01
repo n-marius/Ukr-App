@@ -38,6 +38,7 @@ const ICON = {
   flag: svg(`<path d="M6 21V4"/><path d="M6 4.5c1.4-1 3-1 4.5 0s3.1 1 4.5 0v9c-1.4 1-3 1-4.5 0s-3.1-1-4.5 0"/>`),
   download: svg(`<path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14"/>`),
   up: svg(`<path d="M7 12l5-5 5 5M7 17.5l5-5 5 5"/>`),
+  pen: svg(`<path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17z"/><path d="M14 8l3 3"/>`),
   clock: svg(`<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>`, `class="row-clock"`),
 };
 
@@ -104,7 +105,7 @@ async function showHome() {
         <button class="mode" id="mode-chat" ${totalChats ? "" : "disabled"}>
           <span class="mode-icon">${ICON.dialog}</span>
           ${totalChats ? ICON.arrow : `<span class="badge">Noch keine Chats</span>`}
-          <span class="mode-title">Frage-Antwort</span>
+          <span class="mode-title">Chat</span>
           <span class="mode-text">${totalChats ? plural(totalChats, "Gespräch", "Gespräche") : "Gespräche führen und verstehen"}</span>
         </button>
         <button class="mode" id="mode-vocab" ${vocabCount ? "" : "disabled"}>
@@ -206,7 +207,7 @@ async function showTopics(level, showDone = false) {
   );
 }
 
-// ---------- Frage-Antwort: Stufe ----------
+// ---------- Chat: Stufe ----------
 
 async function showChatLevels() {
   await sync();
@@ -228,7 +229,7 @@ async function showChatLevels() {
     left: backButton,
     body: `
       <header class="page-head">
-        <p class="kicker">Frage-Antwort</p>
+        <p class="kicker">Chat</p>
         <h1 class="page-title">Stufe wählen</h1>
       </header>
       <div class="group">${rows}</div>`,
@@ -238,7 +239,7 @@ async function showChatLevels() {
   root.querySelectorAll("[data-level]:not(:disabled)").forEach((b) => b.addEventListener("click", () => showChatTopics(b.dataset.level)));
 }
 
-// ---------- Frage-Antwort: Thema ----------
+// ---------- Chat: Thema ----------
 
 async function showChatTopics(level) {
   const chats = chatIndex.chats.filter((c) => c.level === level);
@@ -255,7 +256,7 @@ async function showChatTopics(level) {
     left: backButton,
     body: `
       <header class="page-head">
-        <p class="kicker">Frage-Antwort · <b>${level}</b> ${LEVEL_NAMES[level]}</p>
+        <p class="kicker">Chat · <b>${level}</b> ${LEVEL_NAMES[level]}</p>
         <h1 class="page-title">Thema wählen</h1>
         <p class="page-sub">${plural(chats.length, "Gespräch", "Gespräche")}</p>
       </header>
@@ -269,7 +270,7 @@ async function showChatTopics(level) {
   );
 }
 
-// ---------- Frage-Antwort: Chat wählen ----------
+// ---------- Chat: Chat wählen ----------
 
 async function showChatList(level, tag) {
   const chats = chatIndex.chats
@@ -294,7 +295,7 @@ async function showChatList(level, tag) {
     left: backButton,
     body: `
       <header class="page-head">
-        <p class="kicker">Frage-Antwort · <b>${level}</b> · ${escapeHtml(tag)}</p>
+        <p class="kicker">Chat · <b>${level}</b> · ${escapeHtml(tag)}</p>
         <h1 class="page-title">Gespräch wählen</h1>
       </header>
       <div class="group">${rows}</div>`,
@@ -306,7 +307,7 @@ async function showChatList(level, tag) {
   );
 }
 
-// ---------- Frage-Antwort: Gespräch ----------
+// ---------- Chat: Gespräch ----------
 
 async function showChatRoom(entry, level, tag) {
   const chat = await (await fetch(`content/chat/${entry.file}`)).json();
@@ -555,7 +556,7 @@ async function showSettings() {
   on("#reset-vocab-levels", "click", () =>
     confirmDialog({
       title: "Vokabeln zurücksetzen?",
-      text: "Alle Vokabeln in beiden Richtungen stehen danach wieder in Stufe 1 – auch auf synchronisierten Geräten. Prioritäten bleiben erhalten.",
+      text: "Alle Vokabelkarten (beide Richtungen und Schreiben) stehen danach wieder in Stufe 1 – auch auf synchronisierten Geräten. Prioritäten bleiben erhalten.",
       onYes: async () => { await resetVocabLevels(); toast("Vokabeln zurückgesetzt"); },
     })
   );

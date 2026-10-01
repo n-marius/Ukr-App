@@ -124,7 +124,7 @@ Das Skript prüft vor jedem Commit:
 - `version` wurde erhöht, sobald sich `content/` (außer `content/chat` und `content/_inbox`) gegenüber dem letzten Commit geändert hat.
 
 ## 4. Verhalten Funktion 1 (Text)
-- **Start:** Die erste Seite zeigt nur die Funktionswahl (Text, Frage-Antwort; nicht verfügbare Funktionen sind ausgegraut). Nach „Text“ folgt die Stufenwahl (A1–C2; Stufen ohne Texte sind sichtbar, aber ausgegraut), dann die Themen-Chips. Dort erscheinen nur verfügbare Themen, jeweils mit der Anzahl der Texte. Der Schalter „Offen / Bereits bearbeitet“ wechselt die Auswahl auf bearbeitete Texte. Die App wählt innerhalb des Themas den nächsten Text nach ID.
+- **Start:** Die erste Seite zeigt nur die Funktionswahl (Text, Chat, Vokabeln; nicht verfügbare Funktionen sind ausgegraut). Die Funktion „Chat“ hieß früher „Frage-Antwort“ (Abschnitt 5). Nach „Text“ folgt die Stufenwahl (A1–C2; Stufen ohne Texte sind sichtbar, aber ausgegraut), dann die Themen-Chips. Dort erscheinen nur verfügbare Themen, jeweils mit der Anzahl der Texte. Der Schalter „Offen / Bereits bearbeitet“ wechselt die Auswahl auf bearbeitete Texte. Die App wählt innerhalb des Themas den nächsten Text nach ID.
 - **Lesen:** Ein Tipp auf ein Wort blendet darüber ein Overlay ein mit Betonungsform, Bedeutung, Wortart und Morphologie-Kurzform (z. B. „Subst · f · Sg · Nom“). Das Overlay hat unten eine geschwungene Spitze (wie die Mitte von „{“), die auf das Wort zeigt. Es ist immer nur ein Overlay offen: Ein erneuter Tipp auf das Wort, ein Tipp auf ein anderes Wort oder irgendwo sonst hin schließt es. Nachgeschlagene Wörter bleiben dezent unterstrichen.
 - **Timer:** Er startet beim Anzeigen des Textes und stoppt bei „Kontrolle“. Er pausiert, solange die App im Hintergrund ist (`visibilitychange`).
 - **Kein Abbruch:** Lesen und Kontrolle können nicht abgebrochen werden. Möglich ist nur das Pausieren des Lesens: Der Text wird ausgeblendet, der Timer steht. Wechselt die App in den Hintergrund, pausiert sie automatisch.
@@ -132,7 +132,7 @@ Das Skript prüft vor jedem Commit:
 - **Kontrolle:** Alle 5 Fragen stehen auf einer Seite, jeweils die Frage und darunter die 4 Antworten im 2×2-Raster (A–D). Die erste Auswahl zählt: Die richtige Antwort wird grün, eine falsch gewählte rot markiert (Rand kräftiger als Hintergrund). Die Auswertung ist erst möglich, wenn alle Fragen beantwortet sind. Sie zeigt x/5, Lesezeit, Tempo (Wörter pro Minute), Pace (Sekunden pro 100 Wörter) und die Zahl nachgeschlagener Wörter.
 - **Wiederholungen:** Erneute Bearbeitungen werden durchgeführt und angezeigt, aber nicht in die Statistik geschrieben.
 
-## 5. Content-Format und Verhalten Funktion 2 (Frage-Antwort)
+## 5. Content-Format und Verhalten Funktion 2 (Chat, früher „Frage-Antwort“)
 
 Ein simuliertes Gespräch: Die App schreibt eine kurze Nachricht (1–3 Sätze), die Lernperson wählt aus vier vorformulierten Antworten. Es gibt keinen bearbeitet/unbearbeitet-Status und keine Statistik – reine Lernfunktion.
 
@@ -248,3 +248,13 @@ IndexedDB (Version 3): `vLevels` `{key,stufe,ts,noRest?}`, `vPrios` `{key,prio,t
 
 ### 12.8 Statistik
 Statistik → Reiter „Vokabeln“: Diagramm „Karten pro Tag“ (UTC-Tage vom ersten Ereignis bis heute, Ø der letzten 14 Tage).
+
+### 12.9 Schreiben
+Vokabeln → „Schreiben“ → „Vokabeln“ (aktiv) bzw. „Sätze“ (ausgegraut, noch ohne Funktion). „Vokabeln“ läuft wie Frage-Antwort (Prio-Filter, manuell/automatisch, Stufen, Zurück, Melden, Auflösen/Weiter, blauer Knopf), aber nur DE → UKR und mit eigenem Lernstand: Kartenschlüssel `<id>:write`, Stufe und Prio unabhängig von Karteikarten/Frage-Antwort (keine Kopplung an eine Gegenrichtung). Die automatischen Prio-Regeln gelten für die Schreibkarte selbst. Ereignisse zählen in die Vokabelstatistik (`mode: "write"`).
+- Unter der Frage: leere Kästchen je Buchstabe (Wortlücke bei mehreren Wörtern; Satzzeichen, Apostroph, Bindestrich schon ausgefüllt). Darunter Kacheln: alle Buchstaben des Lösungsworts (ohne Betonung, klein) plus 3–6 falsche, die im Wort nicht vorkommen (bevorzugt leicht verwechselbare wie и/і/ї, е/є, г/ґ, ш/щ).
+- Richtiger Buchstabe → Kästchen grün, Kachel blass. Erster Fehler → der richtige Buchstabe erscheint gelb (Kachel blass), die falsche Kachel blinkt kurz rot. Zweiter Fehler (oder „Auflösen“) → Rest rot, Runde falsch. Mit einem Fehler bestanden (zählt als richtig), der blaue Knopf aber nur ganz ohne Fehler.
+- Die Kästchen zeigen die Buchstaben mit Betonungszeichen (aus `a`). Nach Rundenende ersetzt die Zusatzinfo-Box die Kacheln (Hinweis nur, falls nicht schon an der Frage).
+- Laptop: Tippen auf einer ukrainischen Tastatur wählt die passende Kachel.
+
+### 12.10 App-Icon
+Blau (Verlauf) mit goldenem „Ї“ (Literata) und kurzem Goldstrich, erzeugt aus `tools/icon/icon-vorlage.html` per Browser-Screenshot (512, 192, 180 px; maskable mit kleinerem Zeichen).
