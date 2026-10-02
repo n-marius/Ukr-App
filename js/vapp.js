@@ -40,6 +40,7 @@ const dockQuiz = (icon) => `
     <span class="dock-progress" id="progress"></span>
   </div>`;
 
+const WRITE_AUTO_NEXT_MS = 800; // Schreiben: Pause vor dem automatischen Weiter nach fehlerfreiem Wort
 const TYPE_LABEL = { cards: "Karteikarten", quiz: "Frage-Antwort", write: "Schreiben" };
 const dirLabel = (dir) => (dir === "write" ? "DE → UKR" : DIRS[dir]);
 const FLAG_FIELDS = { uk: "Ukrainisch", de: "Deutsch", info: "Zusatzinfo" };
@@ -318,7 +319,15 @@ export function setupVocab(ctx) {
         quizController = renderWriteCard(stage, card, {
           ...common(card),
           // Ein Fehler gilt als bestanden, der blaue Knopf aber nur ganz ohne Fehler.
-          onAnswered: (result) => { outcome = result; nextBtn.textContent = "Weiter"; fastBtn.disabled = !(result.correct && result.mistakes === 0); },
+          onAnswered: (result) => {
+            outcome = result;
+            nextBtn.textContent = "Weiter";
+            const perfect = result.correct && result.mistakes === 0;
+            fastBtn.disabled = !perfect;
+            // Fehlerfrei geschrieben: nach kurzem Moment automatisch weiter (flüssiges Schreiben).
+            // In diesem Moment bleibt der blaue Knopf antippbar.
+            if (perfect) setTimeout(() => { if (outcome === result && !reviewing && resolveStep) resolveStep(outcome); }, WRITE_AUTO_NEXT_MS);
+          },
         });
       } else {
         outcome = null;

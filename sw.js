@@ -2,7 +2,7 @@
 // content/index.json und content/chat/index.json: network-first mit Cache-Fallback;
 // alle gelisteten Texte/Chats werden vorab gecacht und bei geänderter Content-Version neu geladen
 // (Vokabeln: der Index enthält bereits alle Wörter).
-const APP_VERSION = "3.7.0";
+const APP_VERSION = "3.7.1";
 const SHELL_CACHE = `ukr-shell-${APP_VERSION}`;
 const CONTENT_CACHE = "ukr-content";
 
