@@ -77,7 +77,7 @@ async function mergeVocab(remote) {
   return {
     resetAt,
     levelsResetAt,
-    levels: pick(await V.getAllLevels(), { key: "key", keep: ["stufe", "ts", "noRest"] }),
+    levels: pick(await V.getAllLevels(), { key: "key", keep: ["stufe", "ts", "best", "noRest"] }),
     prios: pick(await V.getAllPrios(), { key: "key", keep: ["prio", "ts"] }),
     events: (await V.getAllEvents()).filter((e) => !resetAt || e.ts > resetAt),
     flags: Object.fromEntries((await V.getAllFlags()).map((f) => [f.id, f])),

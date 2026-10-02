@@ -9,7 +9,7 @@ import {
   pickDistractors, shuffle, isAmbiguous, trailingWrong, ukText, stripAccent, POS_LABEL,
 } from "./vocab.js";
 import {
-  PRIOS, STUFEN, EDIT_FIELDS, getAllLevels, setLevel, getAllPrios, setPrio, effectivePrio,
+  PRIOS, STUFEN, EDIT_FIELDS, getAllLevels, setLevel, levelEntry, getAllPrios, setPrio, effectivePrio,
   getAllEvents, addEvent, addFlag, getOpenFlags, resolveOpenFlagsForWord, setEdit, applyOverridesAndFilter, overlayWordById,
 } from "./vstore.js";
 import { getSetting, setSetting } from "./store.js";
@@ -55,6 +55,14 @@ export function setupVocab(ctx) {
   const liveWords = () => applyOverridesAndFilter(allWords);
   const byKey = (list) => new Map(list.map((e) => [e.key, e]));
   const loadMaps = async () => ({ levels: byKey(await getAllLevels()), prios: byKey(await getAllPrios()) });
+  // Schreiben: nur Wörter, deren Karteikarte/Frage-Antwort-Karte (eine Richtung genügt) schon einmal Stufe 5 erreicht hat.
+  const reached5 = (levels, id) => ["de-uk", "uk-de"].some((d) => { const l = levels.get(`${id}:${d}`); return Math.max(l?.best ?? 0, l?.stufe ?? 0) >= 5; });
+  const wordsFor = async (type, levels) => {
+    const words = await liveWords();
+    if (type !== "write") return words;
+    const lv = levels ?? (await loadMaps()).levels;
+    return words.filter((w) => reached5(lv, w.id));
+  };
   const getDir = async () => { const d = await getSetting("vocabDir", "de-uk"); return d in DIRS ? d : "de-uk"; };
 
   // ---------- Art: Karteikarten oder Frage-Antwort ----------
@@ -112,7 +120,7 @@ export function setupVocab(ctx) {
   // ---------- Schreiben: Vokabeln oder Sätze ----------
 
   async function showWriteMenu() {
-    const n = (await liveWords()).length;
+    const n = (await wordsFor("write")).length;
     render("vocab-write", {
       left: backButton(),
       body: `
@@ -125,7 +133,7 @@ export function setupVocab(ctx) {
             <span class="mode-icon">${ICON.cards}</span>
             ${ICON.arrow}
             <span class="mode-title">Vokabeln</span>
-            <span class="mode-text">Deutsches Wort, ukrainisch zusammensetzen</span>
+            <span class="mode-text">${n ? `${plural(n, "Vokabel", "Vokabeln")} freigeschaltet` : "Freigeschaltet ab Stufe 5 in Karteikarten oder Frage-Antwort"}</span>
           </button>
           <button class="mode" disabled>
             <span class="mode-icon">${ICON.text}</span>
@@ -144,7 +152,7 @@ export function setupVocab(ctx) {
   async function showPick(type, allowed = new Set(PRIOS)) {
     const dir = type === "write" ? "write" : await getDir();
     const { prios } = await loadMaps();
-    const cards = filterByPrio(makeCards(await liveWords(), dir), prios, allowed);
+    const cards = filterByPrio(makeCards(await wordsFor(type), dir), prios, allowed);
     const n = cards.length;
 
     render("vocab-pick", {
@@ -197,7 +205,7 @@ export function setupVocab(ctx) {
 
   async function showStufen(type, dir, allowed) {
     const { levels, prios } = await loadMaps();
-    const cards = filterByPrio(makeCards(await liveWords(), dir), prios, allowed);
+    const cards = filterByPrio(makeCards(await wordsFor(type, levels), dir), prios, allowed);
     const counts = countByStufe(cards, levels);
     const due5 = countDueStufe5(cards, levels);
 
@@ -242,7 +250,7 @@ export function setupVocab(ctx) {
 
     const words = await liveWords(); // auch Quelle der Falschantworten (unabhängig vom Prio-Filter)
     let maps = await loadMaps();
-    const cardsAll = filterByPrio(makeCards(words, dir), maps.prios, allowed);
+    const cardsAll = filterByPrio(makeCards(type === "write" ? await wordsFor(type, maps.levels) : words, dir), maps.prios, allowed);
     const queue = auto ? null : buildQueue(cardsAll, stufe, maps.levels);
     const pool = auto ? [...cardsAll] : null;
 
@@ -338,8 +346,9 @@ export function setupVocab(ctx) {
       const now = new Date().toISOString();
       const first = !maps.levels.has(card.key);
       const newStufe = fastTrack ? 4 : correct ? Math.min(5, stufeOf(card) + 1) : 1;
-      await setLevel(card.key, newStufe, now);
-      maps.levels.set(card.key, { key: card.key, stufe: newStufe, ts: now });
+      const entry = levelEntry(card.key, newStufe, now, maps.levels.get(card.key));
+      await setLevel(entry);
+      maps.levels.set(card.key, entry);
       await addEvent({ id: crypto.randomUUID(), ts: now, cardId: card.key, correct, mode: type });
 
       // Schreiben hat keine Gegenrichtung (eigener Lernstand) – dort wirken die Regeln nur auf die Karte selbst.
@@ -352,8 +361,9 @@ export function setupVocab(ctx) {
         // Blauer Knopf: Die Gegenrichtung wandert ebenfalls in Stufe 4 (ohne eigenes Statistik-Ereignis) …
         if (reverseKey && (maps.levels.get(reverseKey)?.stufe ?? 1) < 4) {
           // `noRest`: Die Gegenrichtung darf auch innerhalb von 24 Stunden in der Automatik erscheinen.
-          await setLevel(reverseKey, 4, now, true);
-          maps.levels.set(reverseKey, { key: reverseKey, stufe: 4, ts: now, noRest: true });
+          const rev = levelEntry(reverseKey, 4, now, maps.levels.get(reverseKey), true);
+          await setLevel(rev);
+          maps.levels.set(reverseKey, rev);
         }
         // … und beide Karten bekommen Prio niedrig (die Gegenrichtung nur, sofern sie noch keine Zuweisung hat).
         await assign(card.key, "niedrig");

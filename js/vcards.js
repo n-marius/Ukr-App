@@ -4,7 +4,7 @@
 import { escapeHtml } from "./tokens.js";
 import { prioChip, updatePrioChip } from "./prio.js";
 import { nextPrio } from "./vstore.js";
-import { POS_LABEL, GEN_LABEL, ASP_LABEL, promptOf, answerOf, ukText, writeSlots, writeTiles } from "./vocab.js";
+import { POS_LABEL, GEN_LABEL, ASP_LABEL, promptOf, answerOf, ukText, writeSlots, writeWrongKeys, KB_ROWS, keyOf } from "./vocab.js";
 
 const KEYS = ["A", "B", "C", "D"];
 
@@ -134,9 +134,11 @@ export function renderQuizCardReview(container, card, { options, chosenId, prio 
 // ---------- Schreiben (nur DE → UKR) ----------
 //
 // Unter der Frage stehen leere Kästchen je Buchstabe (Wortlücken bei mehreren Wörtern, Satzzeichen schon
-// ausgefüllt), darunter die Buchstabenkacheln. Richtig → Kästchen grün, Kachel blass. Erster Fehler → der
-// richtige Buchstabe erscheint gelb (seine Kachel wird blass), die falsche Kachel blinkt kurz rot. Zweiter
-// Fehler → Rest rot, Runde verloren. Ein Fehler gilt noch als bestanden (aber ohne blauen Knopf).
+// ausgefüllt), darunter dauerhaft eine ukrainische Tastatur im iPhone-Layout. Antippbar sind nur die Tasten
+// der Buchstaben, die im Wort noch gebraucht werden, plus einige falsche. Die і- bzw. г-Taste zeigt ї bzw. ґ,
+// wenn das nächste noch offene Vorkommen dieser Taste im Wort es verlangt.
+// Richtig → Kästchen grün. Erster Fehler → richtiger Buchstabe gelb, die falsche Taste blinkt kurz rot.
+// Zweiter Fehler → Rest rot, Runde verloren. Ein Fehler gilt noch als bestanden (aber ohne blauen Knopf).
 // Meldet onAnswered({ correct, mistakes, gaveUp, states }); Rückgabe { giveUp() }.
 
 function solutionHtml(slots, states) {
@@ -151,10 +153,23 @@ function solutionHtml(slots, states) {
 
 const doneInfo = (card, skipNote) => `<div class="flash-face w-info">${infoHtml(card.word, { skipNote })}</div>`;
 
+const SHIFT = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5 4 12.5h4.5V19h7v-6.5H20z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+const DEL = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5.5H20v13H8.5L2.5 12z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M11.5 9.5l5 5M16.5 9.5l-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+
+function keyboardHtml() {
+  const key = (k) => `<button type="button" class="kb-key" data-key="${k}" disabled>${k}</button>`;
+  return `
+    <div class="kb" lang="uk" aria-label="Tastatur">
+      <div class="kb-row">${[...KB_ROWS[0]].map(key).join("")}</div>
+      <div class="kb-row">${[...KB_ROWS[1]].map(key).join("")}</div>
+      <div class="kb-row"><span class="kb-key kb-fn" aria-hidden="true">${SHIFT}</span>${[...KB_ROWS[2]].map(key).join("")}<span class="kb-key kb-fn" aria-hidden="true">${DEL}</span></div>
+    </div>`;
+}
+
 export function renderWriteCard(container, card, { onAnswered, prio = "normal", onPrioChange, stufe, ambiguous = false } = {}) {
   const skipNote = ambiguous && !!card.word.zusatz;
   const slots = writeSlots(card.word);
-  const tiles = writeTiles(slots);
+  const wrongKeys = writeWrongKeys(slots);
   const states = slots.map(() => "");
   const order = slots.map((s, i) => (s.kind === "letter" ? i : -1)).filter((i) => i >= 0);
   let pos = 0;
@@ -165,33 +180,35 @@ export function renderWriteCard(container, card, { onAnswered, prio = "normal", 
     <div class="q">
       <div class="q-text v-q">${stufeLabel(stufe)}${questionHtml(card, ambiguous, prio)}</div>
       <div class="w-sol" lang="uk" aria-live="polite">${solutionHtml(slots, states)}</div>
-      <div class="w-pool" id="pool" lang="uk">${tiles.map((t, k) => `<button type="button" class="w-tile" data-k="${k}">${escapeHtml(t.letter)}</button>`).join("")}</div>
+      ${keyboardHtml()}
     </div>`;
   wirePrio(container, onPrioChange);
 
   const sol = container.querySelector(".w-sol");
-  const pool = container.querySelector("#pool");
-  const buttons = [...pool.querySelectorAll(".w-tile")];
-  const used = new Set();
+  const kb = container.querySelector(".kb");
+  const keys = new Map([...kb.querySelectorAll("[data-key]")].map((b) => [b.dataset.key, b]));
 
-  const paint = () => { sol.innerHTML = solutionHtml(slots, states); };
-  // Kachel mit diesem Buchstaben verbrauchen (blass), bevorzugt eine noch freie richtige.
-  const consume = (letter) => {
-    const k = tiles.findIndex((t, j) => !used.has(j) && t.ok && t.letter === letter);
-    if (k < 0) return;
-    used.add(k);
-    buttons[k].disabled = true;
-    buttons[k].classList.add("is-used");
-  };
+  // Nächster noch offener Buchstabe dieser Taste im Wort (für ї/ґ auf der і-/г-Taste).
+  const nextOnKey = (k) => { for (const i of order.slice(pos)) if (keyOf(slots[i].letter) === k) return slots[i].letter; return null; };
+  const shown = (k) => nextOnKey(k) ?? k;
+
+  function refresh() {
+    for (const [k, btn] of keys) {
+      const active = !done && (wrongKeys.has(k) || nextOnKey(k) !== null);
+      btn.disabled = !active;
+      btn.textContent = shown(k);
+    }
+  }
+  const paint = () => { sol.innerHTML = solutionHtml(slots, states); refresh(); };
   const flash = (btn) => { btn.classList.remove("is-flash"); void btn.offsetWidth; btn.classList.add("is-flash"); };
 
   function finish(gaveUp = false) {
     if (done) return;
     done = true;
     document.removeEventListener("keydown", onKey);
-    const correct = !gaveUp && mistakes < 2;
-    pool.outerHTML = doneInfo(card, skipNote);
-    onAnswered?.({ correct, mistakes, gaveUp, states: [...states] });
+    refresh();
+    sol.insertAdjacentHTML("afterend", doneInfo(card, skipNote));
+    onAnswered?.({ correct: !gaveUp && mistakes < 2, mistakes, gaveUp, states: [...states] });
   }
   function lose() {
     for (const i of order.slice(pos)) states[i] = "lost";
@@ -199,22 +216,18 @@ export function renderWriteCard(container, card, { onAnswered, prio = "normal", 
     paint();
   }
 
-  function choose(k) {
-    if (done || used.has(k) || pos >= order.length) return;
+  function choose(letter, btn) {
+    if (done || pos >= order.length) return;
     const i = order[pos];
-    const want = slots[i].letter;
-    const btn = buttons[k];
-    if (tiles[k].letter === want) {
+    if (letter === slots[i].letter) {
       states[i] = "ok";
-      consume(want);
       pos++;
       paint();
     } else {
       mistakes++;
-      flash(btn);
+      if (btn) flash(btn);
       if (mistakes === 1) {
         states[i] = "help";
-        consume(want);
         pos++;
         paint();
       } else {
@@ -225,22 +238,23 @@ export function renderWriteCard(container, card, { onAnswered, prio = "normal", 
     }
     if (pos >= order.length) setTimeout(() => finish(), 250);
   }
-  buttons.forEach((b, k) => b.addEventListener("click", () => choose(k)));
+  for (const [k, btn] of keys) btn.addEventListener("click", () => { if (!btn.disabled) choose(shown(k), btn); });
 
-  // Laptop: Tippen auf der (ukrainischen) Tastatur wählt eine passende Kachel.
+  // Laptop: Tippen auf einer (ukrainischen) Tastatur entspricht dem Antippen der Taste.
   function onKey(e) {
-    if (!pool.isConnected) { document.removeEventListener("keydown", onKey); return; }
+    if (!kb.isConnected || done) { document.removeEventListener("keydown", onKey); return; }
     if (e.metaKey || e.ctrlKey || e.altKey || e.key.length !== 1) return;
     const letter = e.key.toLowerCase();
-    const k = tiles.findIndex((t, j) => !used.has(j) && t.letter === letter);
-    if (k >= 0) { e.preventDefault(); choose(k); }
+    const btn = keys.get(keyOf(letter));
+    if (btn && !btn.disabled) { e.preventDefault(); choose(letter, btn); }
   }
   document.addEventListener("keydown", onKey);
+  refresh();
 
   return { giveUp() { if (done || pos >= order.length) return; mistakes = 2; lose(); finish(true); } };
 }
 
-// Schreibgeschützte Rückschau im Endzustand.
+// Schreibgeschützte Rückschau im Endzustand (Tastatur gesperrt).
 export function renderWriteReview(container, card, { states, prio = "normal", onPrioChange, stufe, ambiguous = false } = {}) {
   const slots = writeSlots(card.word);
   container.innerHTML = `
@@ -248,6 +262,7 @@ export function renderWriteReview(container, card, { states, prio = "normal", on
       <div class="q-text v-q">${stufeLabel(stufe)}${questionHtml(card, ambiguous, prio)}</div>
       <div class="w-sol" lang="uk">${solutionHtml(slots, states ?? slots.map(() => "lost"))}</div>
       ${doneInfo(card, ambiguous && !!card.word.zusatz)}
+      ${keyboardHtml()}
     </div>`;
   wirePrio(container, onPrioChange);
 }

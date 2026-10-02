@@ -1,6 +1,6 @@
 // Lokale Daten der Vokabelfunktion (IndexedDB, gleiche Datenbank wie store.js).
 // Jede Karte ist ein Wort in einer Richtung: Schlüssel „<wortId>:<richtung>“ (z. B. „v0007:de-uk“).
-//  - levels  { key, stufe, ts, noRest? } Leitner-Stufe 1–5, pro Karte gewinnt der spätere ts (Sync); noRest: keine 24-h-Sperre
+//  - levels  { key, stufe, ts, best, noRest? } Leitner-Stufe 1–5, pro Karte gewinnt der spätere ts (Sync); noRest: keine 24-h-Sperre
 //  - prios   { key, prio, ts }           persönliche Prio; ohne Eintrag gilt „normal“
 //  - events  { id, ts, cardId, correct, mode }   bearbeitete Karten (append-only, Tagesstatistik)
 //  - flags   { id, wordId, field, note, ts, status }   Meldungen, pro id gewinnt der spätere ts
@@ -44,7 +44,12 @@ async function mergeLww(name, keyProp, remote, skip = () => false) {
 
 // ---------- Stufen ----------
 export const getAllLevels = () => getAll(S.levels);
-export const setLevel = (key, stufe, ts, noRest = false) => putAll(S.levels, [{ key, stufe, ts, ...(noRest ? { noRest: true } : {}) }]);
+// `best`: höchste je erreichte Stufe dieser Karte (schaltet das Schreiben frei, SPEC.md 12.9); `noRest`: keine 24-h-Sperre.
+export function levelEntry(key, stufe, ts, prev, noRest = false) {
+  const best = Math.max(stufe, prev?.best ?? prev?.stufe ?? 0);
+  return { key, stufe, ts, best, ...(noRest ? { noRest: true } : {}) };
+}
+export const setLevel = (entry) => putAll(S.levels, [entry]);
 export const mergeLevels = (remote, levelsResetAt) => mergeLww(S.levels, "key", remote, (v) => levelsResetAt && v.ts <= levelsResetAt);
 export async function deleteLevelsUpTo(resetAt) {
   await deleteKeys(S.levels, (await getAllLevels()).filter((l) => l.ts <= resetAt).map((l) => l.key));
