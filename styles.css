@@ -63,6 +63,13 @@
   /* Gelb für „Buchstabe vorgesagt“ (Schreiben) */
   --hint: #a8740c;
   --hint-soft: #fcf3dc;
+  /* Tastatur (Schreiben), angelehnt an die iPhone-Tastatur */
+  --kb-bg: #d4d5da;
+  --kb-key: #ffffff;
+  --kb-key-down: #b9bbc2;
+  --kb-fn: #acafb7;
+  --kb-fg: #111113;
+  --kb-shadow: #898a8d;
 
   --btn-bg: #111113;
   --btn-bg-hover: #2a2a2e;
@@ -111,6 +118,12 @@
     --blue-soft: rgba(134, 169, 236, 0.14);
     --hint: #e8b84a;
     --hint-soft: rgba(232, 184, 74, 0.14);
+    --kb-bg: #2a2a2c;
+    --kb-key: #6b6b6e;
+    --kb-key-down: #4a4a4d;
+    --kb-fn: #464649;
+    --kb-fg: #ffffff;
+    --kb-shadow: #121213;
 
     --btn-bg: #f3f3f4;
     --btn-bg-hover: #ffffff;
@@ -1090,25 +1103,47 @@ button.row:active:not(:disabled), label.row:active { background: var(--surface-2
 .w-box.is-ok { background: var(--correct-soft); border-color: var(--correct); box-shadow: inset 0 0 0 1px var(--correct); color: var(--correct); }
 .w-box.is-help { background: var(--hint-soft); border-color: var(--hint); box-shadow: inset 0 0 0 1px var(--hint); color: var(--hint); }
 .w-box.is-lost { background: var(--wrong-soft); border-color: var(--wrong); box-shadow: inset 0 0 0 1px var(--wrong); color: var(--wrong); }
-.w-pool { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-.w-tile {
-  width: 46px;
-  height: 50px;
-  border-radius: var(--r);
-  border: 1px solid var(--line-2);
-  background: var(--surface);
-  font-family: var(--serif);
-  font-size: 22px;
-  font-weight: 500;
-  transition: opacity 0.2s ease, border-color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+/* Tastatur im iPhone-Layout (Ukrainisch). Nicht benötigte Tasten bleiben sichtbar, aber blass und gesperrt. */
+.kb {
+  --kgap: 6px;
+  margin: 4px calc(-1 * var(--gutter)) 0;
+  padding: 8px 3px 10px;
+  background: var(--kb-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  user-select: none;
+  -webkit-user-select: none;
 }
-.w-tile:hover:not(:disabled) { border-color: var(--ink-3); background: var(--hover); }
-.w-tile:active:not(:disabled) { transform: scale(0.95); }
-.w-tile.is-used { opacity: 0.28; }
-.w-tile.is-flash { animation: tile-wrong 0.6s ease; }
-@keyframes tile-wrong {
-  0%, 100% { background: var(--surface); border-color: var(--line-2); color: var(--ink); }
-  25%, 55% { background: var(--wrong-soft); border-color: var(--wrong); color: var(--wrong); box-shadow: inset 0 0 0 1px var(--wrong); }
+.kb-row { display: flex; justify-content: center; gap: var(--kgap); }
+.kb-key {
+  flex: 0 0 calc((100% - 10 * var(--kgap)) / 11);
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--kb-key);
+  box-shadow: 0 1px 0 var(--kb-shadow);
+  color: var(--kb-fg);
+  font-family: var(--sans);
+  font-size: 23px;
+  font-weight: 400;
+  line-height: 1;
+  transition: opacity 0.2s ease, background-color 0.08s ease;
+}
+.kb-key:active:not(:disabled) { background: var(--kb-key-down); }
+.kb-key:disabled { opacity: 0.32; box-shadow: none; }
+.kb-fn { flex: 1 1 0; max-width: 46px; background: var(--kb-fn); opacity: 0.55; }
+.kb-row:last-child .kb-fn:first-child { margin-right: auto; }
+.kb-row:last-child .kb-fn:last-child { margin-left: auto; }
+.kb-fn svg { width: 22px; height: 22px; }
+.kb-key.is-flash { animation: key-wrong 0.6s ease; }
+@keyframes key-wrong {
+  25%, 55% { background: var(--wrong-soft); color: var(--wrong); box-shadow: inset 0 0 0 1.5px var(--wrong); }
+}
+@media (min-width: 560px) {
+  .kb { margin: 4px 0 0; border-radius: var(--r-lg); padding: 10px 8px 12px; }
 }
 .w-info { min-height: 0; animation: explain-open 0.28s var(--ease) both; }
 .w-info .v-info { margin-top: 0; padding-top: 0; border-top: 0; }
@@ -1117,7 +1152,8 @@ button.row:active:not(:disabled), label.row:active { background: var(--surface-2
   .bar-inner { height: 48px; }
   .w-box { width: 32px; height: 42px; font-size: 20px; }
   .w-word { gap: 3px; }
-  .w-tile { width: 42px; height: 46px; font-size: 20px; }
+  .kb { --kgap: 5px; gap: 10px; }
+  .kb-key { height: 42px; font-size: 22px; }
   .screen.has-dock { padding-bottom: 14px; }
   .dock { padding: 8px 0 calc(8px + env(safe-area-inset-bottom)); }
   .dock .btn { height: 44px; }

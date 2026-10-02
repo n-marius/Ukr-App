@@ -183,7 +183,6 @@ export function trailingWrong(events, key) {
 
 // ---------- Schreiben: Buchstaben ----------
 
-const UK_ALPHABET = "абвгґдеєжзиіїйклмнопрстуфхцчшщьюя";
 // Leicht verwechselbare Buchstaben – bevorzugte Falschbuchstaben.
 const CONFUSABLE = {
   и: "іїй", і: "иїй", ї: "іиє", й: "иі", е: "єи", є: "еї", г: "ґх", ґ: "г", ш: "щж", щ: "шч", ч: "щц", ц: "чс",
@@ -191,27 +190,33 @@ const CONFUSABLE = {
   з: "сж", с: "зц", ж: "шз", к: "гх", х: "кг", л: "м", м: "лн", н: "м", р: "л",
 };
 
-// Zerlegt die Form mit Betonung in Felder: Buchstaben (zum Anklicken; Anzeige mit Betonungszeichen),
-// feste Zeichen (Satzzeichen, Apostroph, Bindestrich – schon ausgefüllt) und Wortlücken.
+// iPhone-Tastatur Ukrainisch (Grundbelegung); ї liegt auf der і-Taste, ґ auf der г-Taste.
+export const KB_ROWS = ["йцукенгшщзх", "фівапролджє", "ячсмитьбю"];
+const KB_KEYS = new Set(KB_ROWS.join(""));
+export const keyOf = (letter) => (letter === "ї" ? "і" : letter === "ґ" ? "г" : letter);
+
+// Zerlegt die Form mit Betonung in Felder: Buchstaben (zum Antippen; Anzeige mit Betonungszeichen),
+// feste Zeichen (Satzzeichen, Apostroph, Bindestrich, Zeichen ohne Taste – schon ausgefüllt) und Wortlücken.
 export function writeSlots(word) {
   const a = (word.a || word.uk).normalize("NFC");
   const slots = [];
   for (const ch of a) {
     if (ch === "\u0301") { if (slots.length) slots[slots.length - 1].show += ch; continue; }
     if (ch === " ") slots.push({ kind: "gap" });
-    else if (/\p{L}/u.test(ch)) slots.push({ kind: "letter", letter: ch.toLowerCase(), show: ch });
+    else if (/\p{L}/u.test(ch) && KB_KEYS.has(keyOf(ch.toLowerCase()))) slots.push({ kind: "letter", letter: ch.toLowerCase(), show: ch });
     else slots.push({ kind: "fixed", show: ch });
   }
   return slots;
 }
 
-// Auswahl: alle richtigen Buchstaben (je Vorkommen eine Kachel) plus einige falsche, die im Wort nicht vorkommen.
-export function writeTiles(slots) {
-  const correct = slots.filter((s) => s.kind === "letter").map((s) => s.letter);
-  const inWord = new Set(correct);
-  const want = Math.min(6, Math.max(3, Math.round(correct.length / 3)));
+// Falsche Tasten (3–6), bevorzugt leicht verwechselbare; nie eine Taste, deren Buchstabe (oder Variante) im Wort vorkommt.
+export function writeWrongKeys(slots) {
+  const letters = slots.filter((s) => s.kind === "letter").map((s) => s.letter);
+  const used = new Set(letters.map(keyOf));
+  const want = Math.min(6, Math.max(3, Math.round(letters.length / 3)));
   const wrong = new Set();
-  for (const c of shuffle([...inWord])) for (const x of CONFUSABLE[c] ?? "") if (!inWord.has(x) && UK_ALPHABET.includes(x) && wrong.size < Math.ceil(want / 2)) wrong.add(x);
-  for (const x of shuffle([...UK_ALPHABET])) { if (wrong.size >= want) break; if (!inWord.has(x)) wrong.add(x); }
-  return shuffle([...correct.map((letter) => ({ letter, ok: true })), ...[...wrong].map((letter) => ({ letter, ok: false }))]);
+  const ok = (x) => KB_KEYS.has(keyOf(x)) && !used.has(keyOf(x));
+  for (const c of shuffle([...new Set(letters)])) for (const x of CONFUSABLE[c] ?? "") if (ok(x) && wrong.size < Math.ceil(want / 2)) wrong.add(keyOf(x));
+  for (const x of shuffle([...KB_KEYS])) { if (wrong.size >= want) break; if (ok(x)) wrong.add(x); }
+  return wrong;
 }
