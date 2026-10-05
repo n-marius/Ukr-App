@@ -63,6 +63,14 @@
   /* Gelb für „Buchstabe vorgesagt“ (Schreiben) */
   --hint: #a8740c;
   --hint-soft: #fcf3dc;
+  /* Stufenbalken (Graustufen) */
+  --lv1: #e4e4e7;
+  --lv2: #c4c4c9;
+  --lv3: #93939a;
+  --lv4: #5f5f66;
+  --lv5: #2e2e33;
+  --lv-fg: #ffffff;
+  --lv3-fg: #ffffff;
   /* Tastatur (Schreiben), angelehnt an die iPhone-Tastatur */
   --kb-bg: #d4d5da;
   --kb-key: #ffffff;
@@ -118,6 +126,13 @@
     --blue-soft: rgba(134, 169, 236, 0.14);
     --hint: #e8b84a;
     --hint-soft: rgba(232, 184, 74, 0.14);
+    --lv1: #2c2c30;
+    --lv2: #46464b;
+    --lv3: #6c6c73;
+    --lv4: #9c9ca3;
+    --lv5: #d4d4d8;
+    --lv-fg: #111113;
+    --lv3-fg: #f3f3f4;
     --kb-bg: #2a2a2c;
     --kb-key: #6b6b6e;
     --kb-key-down: #4a4a4d;
@@ -375,6 +390,9 @@ button.mode:hover:not(:disabled) .mode-go { color: var(--ink-2); transform: tran
   font-weight: 560;
   color: var(--ink-3);
 }
+
+/* „Neu“-Hinweis oben rechts (links neben dem Pfeil) */
+.badge-new { top: 19px; right: 50px; border-color: transparent; background: var(--accent); color: var(--bg); font-weight: 650; letter-spacing: 0.01em; }
 
 /* ---------- Listen ---------- */
 
@@ -944,6 +962,17 @@ button.row:active:not(:disabled), label.row:active { background: var(--surface-2
 [data-prio="hoch"] { --prio-ink: var(--wrong); --prio-tint: var(--wrong-soft); --prio-ring: color-mix(in srgb, var(--wrong) 24%, transparent); }
 [data-prio="normal"] { --prio-ink: var(--ink-2); --prio-tint: var(--surface-2); --prio-ring: var(--line-2); }
 [data-prio="niedrig"] { --prio-ink: var(--blue); --prio-tint: var(--blue-soft); --prio-ring: color-mix(in srgb, var(--blue) 24%, transparent); }
+
+/* Stufenbalken (Frage-Antwort): Anteil je Stufe, Graustufen von hell (Stufe 1) bis dunkel (Stufe 5) */
+.lvbar { display: flex; gap: 2px; height: 22px; margin: 14px 0 0; border-radius: 7px; overflow: hidden; }
+.lvbar.is-empty { background: var(--surface-2); }
+.lvbar-seg { flex: 1 1 0; min-width: 3px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.lvbar-n { font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+.lvbar-seg[data-stufe="1"] { background: var(--lv1); color: var(--ink-2); }
+.lvbar-seg[data-stufe="2"] { background: var(--lv2); color: var(--ink-2); }
+.lvbar-seg[data-stufe="3"] { background: var(--lv3); color: var(--lv3-fg); }
+.lvbar-seg[data-stufe="4"] { background: var(--lv4); color: var(--lv-fg); }
+.lvbar-seg[data-stufe="5"] { background: var(--lv5); color: var(--lv-fg); }
 
 /* Prio-Auswahl: gleiche Größe wie das Symbol auf der Karte (24 px) */
 .prio-row { display: flex; align-items: center; justify-content: space-between; margin: 18px 2px 20px; }

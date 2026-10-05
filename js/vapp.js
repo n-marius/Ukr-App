@@ -73,6 +73,7 @@ export function setupVocab(ctx) {
     const n = words.length;
     const open = await openFlags();
     const quizOk = n >= 4;
+    const writeNew = await hasNewWriteWords();
 
     render("vocab-types", {
       left: backButton(),
@@ -96,6 +97,7 @@ export function setupVocab(ctx) {
             <span class="mode-text">Vier Möglichkeiten, eine richtig</span>
           </button>
           <button class="mode" id="mode-write" ${n ? "" : "disabled"}>
+            ${writeNew ? NEW_BADGE : ""}
             <span class="mode-icon">${ICON.pen}</span>
             ${ICON.arrow}
             <span class="mode-title">Schreiben</span>
@@ -118,10 +120,40 @@ export function setupVocab(ctx) {
     on("#to-flags", "click", showFlagReview);
   }
 
+  // ---------- Stufenbalken (wie die Speicheranzeige unter iOS, in Graustufen) ----------
+
+  function levelBar(cards, levels) {
+    const counts = countByStufe(cards, levels);
+    const total = cards.length;
+    if (!total) return `<div class="lvbar is-empty" aria-label="Keine Karten in dieser Auswahl"></div>`;
+    const parts = STUFEN.filter((st) => counts[st] > 0).map((st) =>
+      `<span class="lvbar-seg" data-stufe="${st}" style="flex-grow:${counts[st]}" title="Stufe ${st}: ${plural(counts[st], "Karte", "Karten")}"><span class="lvbar-n">${counts[st]}</span></span>`).join("");
+    return `<div class="lvbar" role="img" aria-label="${STUFEN.map((st) => `Stufe ${st}: ${counts[st]}`).join(", ")}">${parts}</div>`;
+  }
+  // Zahl nur zeigen, wenn sie in die Fläche passt.
+  function fitLevelBar() {
+    requestAnimationFrame(() => root.querySelectorAll(".lvbar-seg").forEach((seg) => {
+      const n = seg.querySelector(".lvbar-n");
+      n.hidden = n.scrollWidth + 8 > seg.clientWidth;
+    }));
+  }
+
+  // ---------- Schreiben: „Neu“-Hinweis ----------
+  // Lokal gemerkt: welche freigeschalteten Wörter beim letzten Öffnen von „Schreiben“ schon da waren.
+  const WRITE_SEEN = "vocabWriteSeen";
+  async function hasNewWriteWords() {
+    const seen = new Set(await getSetting(WRITE_SEEN, []));
+    return (await wordsFor("write")).some((w) => !seen.has(w.id));
+  }
+  const markWriteSeen = async () => setSetting(WRITE_SEEN, (await wordsFor("write")).map((w) => w.id));
+  const NEW_BADGE = `<span class="badge badge-new">Neu</span>`;
+
   // ---------- Schreiben: Vokabeln oder Sätze ----------
 
   async function showWriteMenu() {
     const n = (await wordsFor("write")).length;
+    const isNew = await hasNewWriteWords();
+    await markWriteSeen();
     render("vocab-write", {
       left: backButton(),
       body: `
@@ -131,6 +163,7 @@ export function setupVocab(ctx) {
         </header>
         <div class="modes">
           <button class="mode" id="write-words" ${n ? "" : "disabled"}>
+            ${isNew ? NEW_BADGE : ""}
             <span class="mode-icon">${ICON.cards}</span>
             ${ICON.arrow}
             <span class="mode-title">Vokabeln</span>
@@ -152,7 +185,7 @@ export function setupVocab(ctx) {
 
   async function showPick(type, allowed = new Set(PRIOS)) {
     const dir = type === "write" ? "write" : await getDir();
-    const { prios } = await loadMaps();
+    const { prios, levels } = await loadMaps();
     const cards = filterByPrio(makeCards(await wordsFor(type), dir), prios, allowed);
     const n = cards.length;
 
@@ -167,6 +200,7 @@ export function setupVocab(ctx) {
         <div class="seg" id="dir-seg" role="tablist" aria-label="Richtung">
           ${Object.entries(DIRS).map(([d, label]) => `<button role="tab" data-dir="${d}" class="${d === dir ? "is-active" : ""}">${label}</button>`).join("")}
         </div>`}
+        ${type === "quiz" ? levelBar(cards, levels) : ""}
         <div class="prio-row">
           <div class="prio-toggle" role="group" aria-label="Prioritäten">${PRIOS.map((p) => prioToggle(p, allowed.has(p))).join("")}</div>
           <span class="prio-count">${plural(n, "Karte", "Karten")}</span>
@@ -187,6 +221,7 @@ export function setupVocab(ctx) {
         </div>`,
     });
 
+    fitLevelBar();
     on("#back", "click", type === "write" ? showWriteMenu : showTypes);
     root.querySelectorAll("#dir-seg [data-dir]").forEach((b) =>
       b.addEventListener("click", async () => { await setSetting("vocabDir", b.dataset.dir); showPick(type, allowed); })
