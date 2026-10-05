@@ -200,7 +200,7 @@ export function setupVocab(ctx) {
         <div class="seg" id="dir-seg" role="tablist" aria-label="Richtung">
           ${Object.entries(DIRS).map(([d, label]) => `<button role="tab" data-dir="${d}" class="${d === dir ? "is-active" : ""}">${label}</button>`).join("")}
         </div>`}
-        ${type === "quiz" ? levelBar(cards, levels) : ""}
+        ${type !== "write" ? levelBar(cards, levels) : ""}
         <div class="prio-row">
           <div class="prio-toggle" role="group" aria-label="Prioritäten">${PRIOS.map((p) => prioToggle(p, allowed.has(p))).join("")}</div>
           <span class="prio-count">${plural(n, "Karte", "Karten")}</span>
