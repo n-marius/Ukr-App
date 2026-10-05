@@ -117,6 +117,15 @@ export function setupVocab(ctx) {
     on("#mode-cards", "click", () => showPick("cards"));
     on("#mode-quiz", "click", () => showPick("quiz"));
     on("#mode-write", "click", showWriteMenu);
+    // Stand anderer Geräte nachladen und „Neu“ ggf. anpassen, ohne die Seite neu aufzubauen.
+    sync().then(async () => {
+      const tile = $("#mode-write");
+      if (!tile || tile.disabled) return;
+      const isNew = await hasNewWriteWords();
+      const badge = tile.querySelector(".badge-new");
+      if (isNew && !badge) tile.insertAdjacentHTML("afterbegin", NEW_BADGE);
+      else if (!isNew) badge?.remove();
+    });
     on("#to-flags", "click", showFlagReview);
   }
 
@@ -145,7 +154,13 @@ export function setupVocab(ctx) {
     const seen = new Set(await getSetting(WRITE_SEEN, []));
     return (await wordsFor("write")).some((w) => !seen.has(w.id));
   }
-  const markWriteSeen = async () => setSetting(WRITE_SEEN, (await wordsFor("write")).map((w) => w.id));
+  // Vereinigung mit dem bisherigen Stand; wird synchronisiert (sync.js mergeWriteSeen), damit „Neu“ auf allen Geräten gilt.
+  const markWriteSeen = async () => {
+    const seen = new Set(await getSetting(WRITE_SEEN, []));
+    for (const w of await wordsFor("write")) seen.add(w.id);
+    await setSetting(WRITE_SEEN, [...seen].sort());
+    sync();
+  };
   const NEW_BADGE = `<span class="badge badge-new">Neu</span>`;
 
   // ---------- Schreiben: Vokabeln oder Sätze ----------

@@ -1,7 +1,7 @@
 // Gist-Sync: privates Gist mit stats.json = { v, resetAt, attempts, chatStarts, vocab }.
 // Vereinigung jeweils nach id (append-only). resetAt ist eine gemeinsame Grenze:
 // Datensätze/Ereignisse mit ts <= resetAt werden auf allen Geräten verworfen.
-// `vocab` (Vokabelfunktion, SPEC.md Abschnitt 12.7): { resetAt, levelsResetAt, levels, prios, events, flags, edits } –
+// `vocab` (Vokabelfunktion, SPEC.md Abschnitt 12.7): { resetAt, levelsResetAt, levels, prios, events, flags, edits, writeSeen } –
 // Stufen, Prios, Meldungen und Korrekturen: je Schlüssel gewinnt der spätere ts; Ereignisse: Vereinigung nach id.
 import {
   getAllAttempts, mergeAttempts, deleteAttemptsUpTo, clearAttempts,
@@ -82,13 +82,22 @@ async function mergeVocab(remote) {
     events: (await V.getAllEvents()).filter((e) => !resetAt || e.ts > resetAt),
     flags: Object.fromEntries((await V.getAllFlags()).map((f) => [f.id, f])),
     edits: Object.fromEntries((await V.getAllEdits()).map((e) => [e.wordId, e])),
+    writeSeen: await mergeWriteSeen(remote.writeSeen),
   };
+}
+
+// „Neu“ beim Schreiben (SPEC.md 12.3): Vereinigungsmenge der schon gesehenen Wort-IDs aller Geräte.
+async function mergeWriteSeen(remote) {
+  const merged = [...new Set([...(await getSetting("vocabWriteSeen", [])), ...(remote ?? [])])].sort();
+  await setSetting("vocabWriteSeen", merged);
+  return merged;
 }
 
 // Gleicher Inhalt? (Reihenfolge der Schlüssel egal; Einträge gelten über ihren Zeitstempel als gleich.)
 function sameVocab(a, b) {
   const stamp = (m) => Object.entries(m ?? {}).map(([k, v]) => `${k}@${v.ts}`).sort().join("|");
   const ids = (l) => (l ?? []).map((e) => e.id).sort().join("|");
+  if ((a.writeSeen ?? []).join("|") !== [...(b.writeSeen ?? [])].sort().join("|")) return false;
   return (a.resetAt ?? null) === (b.resetAt ?? null) && (a.levelsResetAt ?? null) === (b.levelsResetAt ?? null) &&
     ["levels", "prios", "flags", "edits"].every((k) => stamp(a[k]) === stamp(b[k])) && ids(a.events) === ids(b.events);
 }
