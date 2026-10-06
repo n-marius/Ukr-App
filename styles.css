@@ -965,12 +965,12 @@ button.row:active:not(:disabled), label.row:active { background: var(--surface-2
 
 /* Stufenbalken (Frage-Antwort): Anteil je Stufe, Graustufen von hell (Stufe 1) bis dunkel (Stufe 5) */
 .lvbar-wrap { position: relative; margin: 14px 0 0; }
-/* Senkrechte Markierung, ragt leicht über den Balken hinaus, damit sie sich von den Flächengrenzen abhebt */
-.lvbar-tick { position: absolute; top: -4px; bottom: -4px; width: 1.5px; margin-left: -0.75px; margin-right: -0.75px; border-radius: 1px; background: var(--ink-2); pointer-events: none; }
+/* Senkrechte Markierung innerhalb des Balkens, liegt hinter den Zahlen */
+.lvbar-tick { position: absolute; top: 0; bottom: 0; z-index: 1; width: 1.5px; margin-left: -0.75px; margin-right: -0.75px; background: var(--ink-2); pointer-events: none; }
 .lvbar { display: flex; gap: 2px; height: 22px; border-radius: 7px; overflow: hidden; }
 .lvbar.is-empty { background: var(--surface-2); }
 .lvbar-seg { flex: 1 1 0; min-width: 3px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-.lvbar-n { font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+.lvbar-n { position: relative; z-index: 2; padding: 0 3px; background: inherit; border-radius: 3px; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
 .lvbar-seg[data-stufe="1"] { background: var(--lv1); color: var(--ink-2); }
 .lvbar-seg[data-stufe="2"] { background: var(--lv2); color: var(--ink-2); }
 .lvbar-seg[data-stufe="3"] { background: var(--lv3); color: var(--lv3-fg); }
