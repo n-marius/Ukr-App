@@ -986,6 +986,9 @@ button.row:active:not(:disabled), label.row:active { background: var(--surface-2
 .prio-toggle-btn[data-active="false"] .prio-glyph { opacity: 0.75; }
 .prio-count { font-size: 13px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .prio-btn { width: 24px; height: 24px; }
+/* Smart-Modus: Wiederholungs-Symbol neben dem Prio-Symbol (Extrarunde bei hoher Prio) */
+.repeat-mark { display: inline-flex; width: 24px; height: 24px; align-items: center; justify-content: center; border-radius: 30%; background: var(--surface-2); color: var(--ink-2); }
+.repeat-mark svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .stats-tabs { margin-bottom: 14px; }
 
 /* Karteikarte */

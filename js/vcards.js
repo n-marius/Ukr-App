@@ -23,8 +23,10 @@ export function infoHtml(word, { skipNote = false } = {}) {
 }
 
 const stufeLabel = (stufe) => (stufe ? `<span class="level-chip">Stufe ${stufe}</span>` : "");
-const questionHtml = (card, ambiguous, prio) => `
-  <span class="card-meta">${prioChip(prio)}</span>
+// Smart-Modus: Wiederholungs-Symbol (zwei Pfeile im Kreis, wie „Wiederholen“ unter iOS) für die Extrarunde.
+const REPEAT_ICON = `<span class="repeat-mark" title="Extrarunde (hohe Priorität)" aria-label="Extrarunde"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2.5l3.5 3.5L17 9.5"/><path d="M3.5 11V9.5A3.5 3.5 0 0 1 7 6h13.5"/><path d="M7 21.5L3.5 18 7 14.5"/><path d="M20.5 13v1.5A3.5 3.5 0 0 1 17 18H3.5"/></svg></span>`;
+const questionHtml = (card, ambiguous, prio, repeat = false) => `
+  <span class="card-meta">${repeat ? REPEAT_ICON : ""}${prioChip(prio)}</span>
   <p class="v-word" ${card.dir === "uk-de" ? 'lang="uk"' : ""}>${escapeHtml(promptOf(card))}</p>
   ${ambiguous && card.word.zusatz ? `<p class="v-hint">${escapeHtml(card.word.zusatz)}</p>` : ""}`;
 
@@ -40,7 +42,7 @@ function wirePrio(container, onPrioChange) {
 
 // ---------- Karteikarte ----------
 
-export function renderFlashcard(container, card, { onRevealed, prio = "normal", onPrioChange, stufe, ambiguous = false, revealed = false } = {}) {
+export function renderFlashcard(container, card, { onRevealed, prio = "normal", onPrioChange, stufe, ambiguous = false, repeat = false, revealed = false } = {}) {
   const showNoteOnFront = ambiguous && !!card.word.zusatz;
   const answerFace = `
     <div class="flash-face">
@@ -52,7 +54,7 @@ export function renderFlashcard(container, card, { onRevealed, prio = "normal", 
   container.innerHTML = `
     <div class="flash">
       <div class="flash-face flash-face-question">
-        <div class="flash-q">${stufeLabel(stufe)}${questionHtml(card, ambiguous, prio)}</div>
+        <div class="flash-q">${stufeLabel(stufe)}${questionHtml(card, ambiguous, prio, repeat)}</div>
       </div>
       ${revealed ? answerFace : `
       <button type="button" class="flash-face is-waiting" id="reveal">
@@ -89,11 +91,11 @@ function answersHtml(card, options, extra = (w) => "") {
 
 // `options`: die Wörter in angezeigter Reihenfolge (richtiges + Falschantworten). Meldet genau einmal
 // onAnswered({ correct, chosenId, options, gaveUp }); Rückgabe { giveUp() } für den „Auflösen“-Knopf.
-export function renderQuizCard(container, card, { options, onAnswered, prio = "normal", onPrioChange, stufe, ambiguous = false } = {}) {
+export function renderQuizCard(container, card, { options, onAnswered, prio = "normal", onPrioChange, stufe, ambiguous = false, repeat = false } = {}) {
   const skipNote = ambiguous && !!card.word.zusatz;
   container.innerHTML = `
     <div class="q">
-      <div class="q-text v-q">${stufeLabel(stufe)}${questionHtml(card, ambiguous, prio)}</div>
+      <div class="q-text v-q">${stufeLabel(stufe)}${questionHtml(card, ambiguous, prio, repeat)}</div>
       <div class="answers" id="answers">${answersHtml(card, options)}</div>
     </div>`;
   wirePrio(container, onPrioChange);
@@ -119,10 +121,10 @@ export function renderQuizCard(container, card, { options, onAnswered, prio = "n
 }
 
 // Schreibgeschützte Rückschau („Zurück“) im Endzustand der Karte; nur die Prio bleibt änderbar.
-export function renderQuizCardReview(container, card, { options, chosenId, prio = "normal", onPrioChange, stufe, ambiguous = false } = {}) {
+export function renderQuizCardReview(container, card, { options, chosenId, prio = "normal", onPrioChange, stufe, ambiguous = false, repeat = false } = {}) {
   container.innerHTML = `
     <div class="q">
-      <div class="q-text v-q">${stufeLabel(stufe)}${questionHtml(card, ambiguous, prio)}</div>
+      <div class="q-text v-q">${stufeLabel(stufe)}${questionHtml(card, ambiguous, prio, repeat)}</div>
       <div class="answers is-done" id="answers">${answersHtml(card, options, (w) => (w.id === card.wordId ? " is-correct" : w.id === chosenId ? " is-wrong" : ""))}</div>
     </div>`;
   wirePrio(container, onPrioChange);
@@ -166,7 +168,7 @@ function keyboardHtml() {
     </div>`;
 }
 
-export function renderWriteCard(container, card, { onAnswered, prio = "normal", onPrioChange, stufe, ambiguous = false } = {}) {
+export function renderWriteCard(container, card, { onAnswered, prio = "normal", onPrioChange, stufe, ambiguous = false, repeat = false } = {}) {
   const skipNote = ambiguous && !!card.word.zusatz;
   const slots = writeSlots(card.word);
   const wrongKeys = writeWrongKeys(slots);
@@ -178,7 +180,7 @@ export function renderWriteCard(container, card, { onAnswered, prio = "normal", 
 
   container.innerHTML = `
     <div class="q">
-      <div class="q-text v-q">${stufeLabel(stufe)}${questionHtml(card, ambiguous, prio)}</div>
+      <div class="q-text v-q">${stufeLabel(stufe)}${questionHtml(card, ambiguous, prio, repeat)}</div>
       <div class="w-sol" lang="uk" aria-live="polite">${solutionHtml(slots, states)}</div>
       ${keyboardHtml()}
     </div>`;
@@ -255,11 +257,11 @@ export function renderWriteCard(container, card, { onAnswered, prio = "normal", 
 }
 
 // Schreibgeschützte Rückschau im Endzustand (Tastatur gesperrt).
-export function renderWriteReview(container, card, { states, prio = "normal", onPrioChange, stufe, ambiguous = false } = {}) {
+export function renderWriteReview(container, card, { states, prio = "normal", onPrioChange, stufe, ambiguous = false, repeat = false } = {}) {
   const slots = writeSlots(card.word);
   container.innerHTML = `
     <div class="q">
-      <div class="q-text v-q">${stufeLabel(stufe)}${questionHtml(card, ambiguous, prio)}</div>
+      <div class="q-text v-q">${stufeLabel(stufe)}${questionHtml(card, ambiguous, prio, repeat)}</div>
       <div class="w-sol" lang="uk">${solutionHtml(slots, states ?? slots.map(() => "lost"))}</div>
       ${doneInfo(card, ambiguous && !!card.word.zusatz)}
       ${keyboardHtml()}

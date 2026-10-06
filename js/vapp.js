@@ -40,6 +40,7 @@ const dockQuiz = (icon) => `
     <span class="dock-progress" id="progress"></span>
   </div>`;
 
+export const SMART_DEFAULT_SIZE = 20; // Smart-Modus: so viele Stufe-1-Vokabeln rotieren (Einstellungen)
 const WRITE_AUTO_NEXT_MS = 250; // Schreiben: + 250 ms Rundenende (vcards.js) = 0,5 s nach dem letzten Buchstaben bis zum nächsten Wort
 const TYPE_LABEL = { cards: "Karteikarten", quiz: "Frage-Antwort", write: "Schreiben" };
 const dirLabel = (dir) => (dir === "write" ? "DE → UKR" : DIRS[dir]);
@@ -128,6 +129,9 @@ export function setupVocab(ctx) {
     });
     on("#to-flags", "click", showFlagReview);
   }
+
+  // ---------- Smart-Modus: Größe der Rotation (Einstellungen, synchronisiert nicht) ----------
+  const getSmartSize = async () => Math.max(1, Number(await getSetting("vocabSmartSize", SMART_DEFAULT_SIZE)) || SMART_DEFAULT_SIZE);
 
   // ---------- Stufenbalken (wie die Speicheranzeige unter iOS, in Graustufen) ----------
 
@@ -227,6 +231,8 @@ export function setupVocab(ctx) {
     const { prios, levels } = await loadMaps();
     const cards = filterByPrio(makeCards(await wordsFor(type), dir), prios, allowed);
     const n = cards.length;
+    const stufe1 = cards.filter((c) => (levels.get(c.key)?.stufe ?? 1) === 1).length;
+    const smartSize = await getSmartSize();
 
     render("vocab-pick", {
       left: backButton(),
@@ -257,6 +263,13 @@ export function setupVocab(ctx) {
             <span class="mode-title">Automatisch</span>
             <span class="mode-text">Karten in sinnvoller Reihenfolge</span>
           </button>
+          ${type !== "write" ? `
+          <button class="mode" id="pick-smart" ${stufe1 ? "" : "disabled"}>
+            <span class="mode-icon">${ICON.smart}</span>
+            ${stufe1 ? ICON.arrow : `<span class="badge">Stufe 1 ist leer</span>`}
+            <span class="mode-title">Smart</span>
+            <span class="mode-text">${smartSize} Vokabeln aus Stufe 1 im Wechsel, bis sie sitzen</span>
+          </button>` : ""}
         </div>`,
     });
 
@@ -274,6 +287,7 @@ export function setupVocab(ctx) {
     );
     on("#pick-manuell", "click", () => showStufen(type, dir, allowed));
     on("#pick-auto", "click", () => runSession({ type, dir, allowed, stufe: null }));
+    on("#pick-smart", "click", () => runSession({ type, dir, allowed, stufe: "smart" }));
   }
 
   // ---------- Stufe (manuell) ----------
@@ -321,23 +335,25 @@ export function setupVocab(ctx) {
 
   async function runSession({ type, dir, allowed, stufe }) {
     const auto = stufe == null;
+    const smart = stufe === "smart";
+    const manual = !auto && !smart;
     await sync();
 
     const words = await liveWords(); // auch Quelle der Falschantworten (unabhängig vom Prio-Filter)
     let maps = await loadMaps();
     const cardsAll = filterByPrio(makeCards(type === "write" ? await wordsFor(type, maps.levels) : words, dir), maps.prios, allowed);
-    const queue = auto ? null : buildQueue(cardsAll, stufe, maps.levels);
+    const queue = manual ? buildQueue(cardsAll, stufe, maps.levels) : null;
     const pool = auto ? [...cardsAll] : null;
 
-    render(`vocab-${type}${auto ? "-auto" : ""}`, {
+    render(`vocab-${type}${auto ? "-auto" : smart ? "-smart" : ""}`, {
       left: backButton("Modus verlassen"),
       mid: `<button class="pill-btn" id="prev-btn" disabled>Zurück</button>`,
-      right: `<button class="icon-btn" id="flag-btn" aria-label="Vokabel melden">${ICON.flag}</button><span class="bar-crumb"><b>${auto ? "Automatisch" : `Stufe ${stufe}`}</b> · ${type === "write" ? "Schreiben" : DIRS[dir]}</span>`,
+      right: `<button class="icon-btn" id="flag-btn" aria-label="Vokabel melden">${ICON.flag}</button><span class="bar-crumb"><b>${auto ? "Automatisch" : smart ? "Smart" : `Stufe ${stufe}`}</b> · ${type === "write" ? "Schreiben" : DIRS[dir]}</span>`,
       body: `<div id="stage" class="vocab"></div>`,
       dock: type === "cards" ? dockCards(ICON.up) : dockQuiz(ICON.up),
     });
 
-    on("#back", "click", async () => { await sync(); if (auto) showPick(type, allowed); else showStufen(type, dir, allowed); });
+    on("#back", "click", async () => { await sync(); if (manual) showStufen(type, dir, allowed); else showPick(type, allowed); });
 
     const pendingKey = `vocabAutoPending_${type}_${dir}`;
     const stage = $("#stage");
@@ -367,6 +383,7 @@ export function setupVocab(ctx) {
       onPrioChange: (prio) => changePrio(card.key, prio),
       stufe: auto ? stufeOf(card) : undefined,
       ambiguous: isAmbiguous(card, words),
+      repeat: smart && rot.repeat.includes(card.key),
     });
 
     async function changePrio(key, prio) {
@@ -417,20 +434,25 @@ export function setupVocab(ctx) {
 
     function showEmptyState() {
       const hasCards = cardsAll.length > 0;
-      stage.innerHTML = auto
+      stage.innerHTML = smart
+        ? `<div class="empty"><p class="empty-title">Stufe 1 ist leer</p><p class="empty-sub">Alle Karten dieser Auswahl stehen mindestens in Stufe 2.</p></div>`
+        : auto
         ? `<div class="empty"><p class="empty-title">${hasCards ? "Für heute durch" : "Keine Karten verfügbar"}</p><p class="empty-sub">${hasCards ? "Alle Karten wurden in den letzten 24 Stunden bearbeitet. Später gibt es wieder neue." : "In dieser Auswahl gibt es aktuell keine Karten."}</p></div>`
         : `<div class="empty"><p class="empty-title">Stufe abgeschlossen</p><p class="empty-sub">Alle Karten dieser Stufe sind für diesen Durchgang bearbeitet.</p></div>`;
       dockNormal.hidden = true;
     }
 
     // Bewertung: Stufe, Ereignis (Statistik) und die automatischen Prio-Regeln.
-    async function answerCard(card, correct, fastTrack) {
+    // `holdLevel` (Smart, Extrarunde bei hoher Prio): richtig gezählt, Stufe bleibt aber vorerst unverändert.
+    async function answerCard(card, correct, fastTrack, holdLevel = false) {
       const now = new Date().toISOString();
       const first = !maps.levels.has(card.key);
       const newStufe = fastTrack ? 4 : correct ? Math.min(5, stufeOf(card) + 1) : 1;
-      const entry = levelEntry(card.key, newStufe, now, maps.levels.get(card.key));
-      await setLevel(entry);
-      maps.levels.set(card.key, entry);
+      if (!holdLevel) {
+        const entry = levelEntry(card.key, newStufe, now, maps.levels.get(card.key));
+        await setLevel(entry);
+        maps.levels.set(card.key, entry);
+      }
       await addEvent({ id: crypto.randomUUID(), ts: now, cardId: card.key, correct, mode: type });
 
       // Schreiben hat keine Gegenrichtung (eigener Lernstand) – dort wirken die Regeln nur auf die Karte selbst.
@@ -463,6 +485,14 @@ export function setupVocab(ctx) {
       const strip = (list) => { for (let k = list.length - 1; k >= 0; k--) if (list[k].wordId === wordId) list.splice(k, 1); };
       if (queue) { for (let k = queue.length - 1; k >= 0; k--) if (queue[k].wordId === wordId) { queue.splice(k, 1); if (k < i) i--; } }
       if (pool) strip(pool);
+      if (smart) {
+        const gone = new Set(cardsAll.filter((c) => c.wordId === wordId).map((c) => c.key));
+        const before = rot.keys.slice(0, rot.pos).filter((k) => gone.has(k)).length;
+        rot.keys = rot.keys.filter((k) => !gone.has(k));
+        rot.repeat = rot.repeat.filter((k) => !gone.has(k));
+        rot.pos -= before;
+        strip(cardsAll);
+      }
       const at = words.findIndex((w) => w.id === wordId);
       if (at >= 0) words.splice(at, 1);
     }
@@ -510,7 +540,63 @@ export function setupVocab(ctx) {
 
     const updateProgress = async () => { progress.textContent = `${countToday(await getAllEvents())} heute bearbeitet`; };
 
+    // ---------- Smart: Rotation aus Stufe-1-Karten ----------
+    // Gespeichert (lokal, je Art und Richtung): Schlüssel der rotierenden Karten, Position, Karten in der Extrarunde.
+    const smartKey = `vocabSmart_${type}_${dir}`;
+    let rot = { keys: [], repeat: [], pos: 0 };
+    let smartSize = SMART_DEFAULT_SIZE;
+    if (smart) {
+      rot = { keys: [], repeat: [], pos: 0, ...(await getSetting(smartKey, null)) };
+      smartSize = await getSmartSize();
+    }
+    const inStufe1 = (c) => stufeOf(c) === 1;
+    function smartRefill() {
+      const byKey = new Map(cardsAll.map((c) => [c.key, c]));
+      const keep = (k) => byKey.has(k) && inStufe1(byKey.get(k));
+      rot.pos -= rot.keys.slice(0, rot.pos).filter((k) => !keep(k)).length;
+      rot.keys = rot.keys.filter(keep).slice(0, Math.max(smartSize, 1));
+      rot.repeat = rot.repeat.filter((k) => rot.keys.includes(k));
+      // Freie Plätze: Nachrücken nach den Regeln der Automatik, aber nur aus Stufe 1 und ohne 24-h-Sperre.
+      const candidates = cardsAll.filter((c) => inStufe1(c) && !rot.keys.includes(c.key));
+      while (rot.keys.length < smartSize && candidates.length) {
+        const c = pickWeightedCard(candidates, maps.levels, maps.prios, null, { ignoreRest: true });
+        if (!c) break;
+        rot.keys.push(c.key);
+        candidates.splice(candidates.indexOf(c), 1);
+      }
+      if (rot.pos < 0 || rot.pos >= rot.keys.length) newRound();
+      return byKey;
+    }
+    // Neue Runde: Reihenfolge mischen, die zuletzt gezeigte Karte nicht gleich wieder an den Anfang.
+    function newRound() {
+      rot.pos = 0;
+      rot.keys = shuffle(rot.keys);
+      if (rot.keys.length > 1 && cardsAll.find((c) => c.key === rot.keys[0])?.wordId === lastWordId) rot.keys.push(rot.keys.shift());
+    }
+    async function smartAfter(card, result) {
+      let leave = false;
+      let holdLevel = false;
+      if (result.fastTrack) leave = true;
+      else if (result.correct) {
+        // Hohe Prio: erst nach einer zusätzlichen richtigen Runde (mit Wiederholungs-Symbol) weiter.
+        if (prioOf(card) === "hoch" && !rot.repeat.includes(card.key)) { rot.repeat.push(card.key); holdLevel = true; }
+        else leave = true;
+      }
+      if (leave || !result.correct) rot.repeat = rot.repeat.filter((k) => k !== card.key);
+      const at = rot.keys.indexOf(card.key);
+      if (leave && at >= 0) { rot.keys.splice(at, 1); if (at < rot.pos) rot.pos--; }
+      else rot.pos = at + 1;
+      if (rot.pos >= rot.keys.length) newRound();
+      await setSetting(smartKey, rot);
+      return holdLevel;
+    }
+
     async function nextCard() {
+      if (smart) {
+        const byKey = smartRefill();
+        await setSetting(smartKey, rot);
+        return rot.keys.length ? byKey.get(rot.keys[rot.pos]) : null;
+      }
       if (auto) {
         if (pool.length === 0) return null;
         const pendingKeyId = await getSetting(pendingKey, null);
@@ -527,6 +613,7 @@ export function setupVocab(ctx) {
         currentCard = null;
         showEmptyState();
         if (!auto) await sync();
+        if (smart) await setSetting(smartKey, rot);
         return;
       }
       dockNormal.hidden = false;
@@ -542,11 +629,12 @@ export function setupVocab(ctx) {
       });
       resolveStep = null;
       if (auto) await setSetting(pendingKey, null);
-      if (!auto && !result.flagged) i++;
+      if (manual && !result.flagged) i++;
       if (result.flagged) { step(); return; }
       lastAnswered = { card, stufe: stufeNow, result };
       prevBtn.disabled = false;
-      await answerCard(card, result.fastTrack ? true : result.correct, !!result.fastTrack);
+      const holdLevel = smart ? await smartAfter(card, result) : false;
+      await answerCard(card, result.fastTrack ? true : result.correct, !!result.fastTrack, holdLevel);
       step();
     }
     step();
