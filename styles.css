@@ -964,10 +964,9 @@ button.row:active:not(:disabled), label.row:active { background: var(--surface-2
 [data-prio="niedrig"] { --prio-ink: var(--blue); --prio-tint: var(--blue-soft); --prio-ring: color-mix(in srgb, var(--blue) 24%, transparent); }
 
 /* Stufenbalken (Frage-Antwort): Anteil je Stufe, Graustufen von hell (Stufe 1) bis dunkel (Stufe 5) */
-.lvbar-marks { position: relative; height: 2px; margin: 14px 0 3px; }
-.lvbar-mark { position: absolute; top: 0; height: 2px; border-radius: 1px; background: var(--ink-3); }
-.lvbar-mark.is-unseen { left: 0; }
-.lvbar-mark.is-was5 { right: 0; }
+.lvbar-wrap { position: relative; margin: 14px 0 0; }
+/* Senkrechte Markierung, ragt leicht über den Balken hinaus, damit sie sich von den Flächengrenzen abhebt */
+.lvbar-tick { position: absolute; top: -4px; bottom: -4px; width: 1.5px; margin-left: -0.75px; margin-right: -0.75px; border-radius: 1px; background: var(--ink-2); pointer-events: none; }
 .lvbar { display: flex; gap: 2px; height: 22px; border-radius: 7px; overflow: hidden; }
 .lvbar.is-empty { background: var(--surface-2); }
 .lvbar-seg { flex: 1 1 0; min-width: 3px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
