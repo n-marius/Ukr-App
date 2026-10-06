@@ -1,7 +1,7 @@
 # Ukrainisch-Lese-App – Spezifikation v1
 
 ## 1. Rahmen
-- PWA, gehostet auf GitHub Pages, Deploy durch Push auf `main`.
+- PWA, gehostet auf GitHub Pages, Deploy durch Push auf `main`. Die leere Datei `.nojekyll` schaltet die Jekyll-Verarbeitung von GitHub Pages ab (reine statische Auslieferung, schnellerer und robusterer Build).
 - Kein Build-Schritt: Vanilla HTML/CSS/JS (ES-Module), keine Frameworks, keine externen Libraries. Diagramme als eigenes SVG.
 - Vollständig offline nach erstem Laden (Service Worker). Netz nur für Updates und Sync.
 - Zielgeräte: iPhone (Safari, Home-Bildschirm) und Laptop (Browser).
