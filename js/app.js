@@ -565,6 +565,8 @@ async function showSettings() {
     const v = Math.min(200, n);
     e.target.value = String(v);
     await setSetting("vocabSmartSize", v);
+    await setSetting("vocabSmartSizeTs", new Date().toISOString());
+    sync();
     toast(`Smart: ${v} Vokabeln in der Rotation`);
   });
   on("#reset-vocab-levels", "click", () =>

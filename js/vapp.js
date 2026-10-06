@@ -130,7 +130,7 @@ export function setupVocab(ctx) {
     on("#to-flags", "click", showFlagReview);
   }
 
-  // ---------- Smart-Modus: Größe der Rotation (Einstellungen, synchronisiert nicht) ----------
+  // ---------- Smart-Modus: Größe der Rotation (Einstellungen, synchronisiert) ----------
   const getSmartSize = async () => Math.max(1, Number(await getSetting("vocabSmartSize", SMART_DEFAULT_SIZE)) || SMART_DEFAULT_SIZE);
 
   // ---------- Stufenbalken (wie die Speicheranzeige unter iOS, in Graustufen) ----------
@@ -541,7 +541,8 @@ export function setupVocab(ctx) {
     const updateProgress = async () => { progress.textContent = `${countToday(await getAllEvents())} heute bearbeitet`; };
 
     // ---------- Smart: Rotation aus Stufe-1-Karten ----------
-    // Gespeichert (lokal, je Art und Richtung): Schlüssel der rotierenden Karten, Position, Karten in der Extrarunde.
+    // Gespeichert je Art und Richtung (synchronisiert, sync.js mergeSmart): Schlüssel der rotierenden Karten,
+    // Position, Karten in der Extrarunde, Zeitstempel (der neuere Stand gewinnt).
     const smartKey = `vocabSmart_${type}_${dir}`;
     let rot = { keys: [], repeat: [], pos: 0 };
     let smartSize = SMART_DEFAULT_SIZE;
@@ -549,6 +550,7 @@ export function setupVocab(ctx) {
       rot = { keys: [], repeat: [], pos: 0, ...(await getSetting(smartKey, null)) };
       smartSize = await getSmartSize();
     }
+    const saveRot = () => setSetting(smartKey, { ...rot, ts: new Date().toISOString() });
     const inStufe1 = (c) => stufeOf(c) === 1;
     function smartRefill() {
       const byKey = new Map(cardsAll.map((c) => [c.key, c]));
@@ -568,10 +570,12 @@ export function setupVocab(ctx) {
       return byKey;
     }
     // Neue Runde: Reihenfolge mischen, die zuletzt gezeigte Karte nicht gleich wieder an den Anfang.
+    // Neue Runde: jede Hälfte für sich mischen – Karten der ersten Hälfte bleiben vorn, die der zweiten hinten.
+    // So kommt eine Karte vom Rundenende nicht gleich zu Beginn der nächsten Runde wieder dran.
     function newRound() {
       rot.pos = 0;
-      rot.keys = shuffle(rot.keys);
-      if (rot.keys.length > 1 && cardsAll.find((c) => c.key === rot.keys[0])?.wordId === lastWordId) rot.keys.push(rot.keys.shift());
+      const half = Math.floor(rot.keys.length / 2);
+      rot.keys = [...shuffle(rot.keys.slice(0, half)), ...shuffle(rot.keys.slice(half))];
     }
     async function smartAfter(card, result) {
       let leave = false;
@@ -587,14 +591,14 @@ export function setupVocab(ctx) {
       if (leave && at >= 0) { rot.keys.splice(at, 1); if (at < rot.pos) rot.pos--; }
       else rot.pos = at + 1;
       if (rot.pos >= rot.keys.length) newRound();
-      await setSetting(smartKey, rot);
+      await saveRot();
       return holdLevel;
     }
 
     async function nextCard() {
       if (smart) {
         const byKey = smartRefill();
-        await setSetting(smartKey, rot);
+        await saveRot();
         return rot.keys.length ? byKey.get(rot.keys[rot.pos]) : null;
       }
       if (auto) {
@@ -613,7 +617,7 @@ export function setupVocab(ctx) {
         currentCard = null;
         showEmptyState();
         if (!auto) await sync();
-        if (smart) await setSetting(smartKey, rot);
+        if (smart) await saveRot();
         return;
       }
       dockNormal.hidden = false;
