@@ -50,7 +50,20 @@ export function levelEntry(key, stufe, ts, prev, noRest = false) {
   return { key, stufe, ts, best, ...(noRest ? { noRest: true } : {}) };
 }
 export const setLevel = (entry) => putAll(S.levels, [entry]);
-export const mergeLevels = (remote, levelsResetAt) => mergeLww(S.levels, "key", remote, (v) => levelsResetAt && v.ts <= levelsResetAt);
+// Stufen: der spätere Eintrag gewinnt; `best` (höchste je erreichte Stufe, Freischaltung fürs Schreiben)
+// ist aber die höhere beider Seiten – sonst ginge sie verloren, wenn ein anderes Gerät die Karte später zurückstuft.
+export async function mergeLevels(remote, levelsResetAt) {
+  const local = new Map((await getAll(S.levels)).map((e) => [e.key, e]));
+  const out = [];
+  for (const [key, value] of Object.entries(remote ?? {})) {
+    if (levelsResetAt && value.ts <= levelsResetAt) continue;
+    const existing = local.get(key);
+    const best = Math.max(value.best ?? value.stufe ?? 0, existing?.best ?? existing?.stufe ?? 0);
+    if (!existing || value.ts > existing.ts) out.push({ ...value, key, best });
+    else if (best > (existing.best ?? 0)) out.push({ ...existing, best });
+  }
+  await putAll(S.levels, out);
+}
 export async function deleteLevelsUpTo(resetAt) {
   await deleteKeys(S.levels, (await getAllLevels()).filter((l) => l.ts <= resetAt).map((l) => l.key));
 }

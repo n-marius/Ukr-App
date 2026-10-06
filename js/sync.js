@@ -1,7 +1,7 @@
 // Gist-Sync: privates Gist mit stats.json = { v, resetAt, attempts, chatStarts, vocab }.
 // Vereinigung jeweils nach id (append-only). resetAt ist eine gemeinsame Grenze:
 // Datensätze/Ereignisse mit ts <= resetAt werden auf allen Geräten verworfen.
-// `vocab` (Vokabelfunktion, SPEC.md Abschnitt 12.7): { resetAt, levelsResetAt, levels, prios, events, flags, edits, writeSeen } –
+// `vocab` (Vokabelfunktion, SPEC.md Abschnitt 12.7): { resetAt, levelsResetAt, levels, prios, events, flags, edits, writeSeen, smart, smartSize } –
 // Stufen, Prios, Meldungen und Korrekturen: je Schlüssel gewinnt der spätere ts; Ereignisse: Vereinigung nach id.
 import {
   getAllAttempts, mergeAttempts, deleteAttemptsUpTo, clearAttempts,
@@ -83,7 +83,34 @@ async function mergeVocab(remote) {
     flags: Object.fromEntries((await V.getAllFlags()).map((f) => [f.id, f])),
     edits: Object.fromEntries((await V.getAllEdits()).map((e) => [e.wordId, e])),
     writeSeen: await mergeWriteSeen(remote.writeSeen),
+    smart: await mergeSmart(remote.smart),
+    smartSize: await mergeSmartSize(remote.smartSize),
   };
+}
+
+// Smart-Modus (SPEC.md 12.11): Rotation je Art/Richtung und Größe – jeweils gewinnt der neuere Stand.
+const SMART_KEYS = ["cards", "quiz"].flatMap((t) => ["de-uk", "uk-de", "mixed"].map((d) => `${t}_${d}`));
+async function mergeSmart(remote) {
+  const out = {};
+  for (const k of SMART_KEYS) {
+    const local = await getSetting(`vocabSmart_${k}`, null);
+    const r = remote?.[k];
+    const win = !local ? r : !r ? local : (r.ts ?? "") > (local.ts ?? "") ? r : local;
+    if (!win) continue;
+    if (win !== local) await setSetting(`vocabSmart_${k}`, win);
+    out[k] = win;
+  }
+  return out;
+}
+async function mergeSmartSize(remote) {
+  const local = { value: await getSetting("vocabSmartSize", null), ts: await getSetting("vocabSmartSizeTs", null) };
+  if (local.value != null && !local.ts) { local.ts = new Date().toISOString(); await setSetting("vocabSmartSizeTs", local.ts); }
+  if (remote?.ts && (!local.ts || remote.ts > local.ts)) {
+    await setSetting("vocabSmartSize", remote.value);
+    await setSetting("vocabSmartSizeTs", remote.ts);
+    return remote;
+  }
+  return local.ts ? local : null;
 }
 
 // „Neu“ beim Schreiben (SPEC.md 12.3): Vereinigungsmenge der schon gesehenen Wort-IDs aller Geräte.
@@ -95,9 +122,10 @@ async function mergeWriteSeen(remote) {
 
 // Gleicher Inhalt? (Reihenfolge der Schlüssel egal; Einträge gelten über ihren Zeitstempel als gleich.)
 function sameVocab(a, b) {
-  const stamp = (m) => Object.entries(m ?? {}).map(([k, v]) => `${k}@${v.ts}`).sort().join("|");
+  const stamp = (m) => Object.entries(m ?? {}).map(([k, v]) => `${k}@${v.ts}@${v.best ?? ""}`).sort().join("|");
   const ids = (l) => (l ?? []).map((e) => e.id).sort().join("|");
   if ((a.writeSeen ?? []).join("|") !== [...(b.writeSeen ?? [])].sort().join("|")) return false;
+  if (stamp(a.smart) !== stamp(b.smart) || (a.smartSize?.ts ?? null) !== (b.smartSize?.ts ?? null)) return false;
   return (a.resetAt ?? null) === (b.resetAt ?? null) && (a.levelsResetAt ?? null) === (b.levelsResetAt ?? null) &&
     ["levels", "prios", "flags", "edits"].every((k) => stamp(a[k]) === stamp(b[k])) && ids(a.events) === ids(b.events);
 }
