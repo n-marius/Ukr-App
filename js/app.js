@@ -2,9 +2,9 @@ import { createReader } from "./reader.js";
 import { renderQuiz } from "./quiz.js";
 import { renderChat } from "./chat.js";
 import { renderStats, renderVocabStats, formatDuration } from "./stats.js";
-import { setupVocab } from "./vapp.js";
+import { setupVocab, SMART_DEFAULT_SIZE } from "./vapp.js";
 import { getAllEvents as getAllVocabEvents } from "./vstore.js";
-import { addAttempt, getAllAttempts, hasAttempt, detectDevice, exportData, importData, getAllChatStartCounts, bumpChatStartCount } from "./store.js";
+import { getSetting, setSetting, addAttempt, getAllAttempts, hasAttempt, detectDevice, exportData, importData, getAllChatStartCounts, bumpChatStartCount } from "./store.js";
 import { getSyncConfig, setSyncConfig, sync, resetAllStats, resetVocabStats, resetVocabLevels } from "./sync.js";
 import { escapeHtml } from "./tokens.js";
 
@@ -39,6 +39,7 @@ const ICON = {
   download: svg(`<path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14"/>`),
   up: svg(`<path d="M7 12l5-5 5 5M7 17.5l5-5 5 5"/>`),
   pen: svg(`<path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17z"/><path d="M14 8l3 3"/>`),
+  smart: svg(`<path d="M17 2.5l3.5 3.5L17 9.5"/><path d="M3.5 11V9.5A3.5 3.5 0 0 1 7 6h13.5"/><path d="M7 21.5L3.5 18 7 14.5"/><path d="M20.5 13v1.5A3.5 3.5 0 0 1 17 18H3.5"/>`),
   clock: svg(`<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>`, `class="row-clock"`),
 };
 
@@ -490,6 +491,7 @@ async function showStats(tab = "texte", level) {
 
 async function showSettings() {
   const cfg = await getSyncConfig();
+  const smartSize = await getSetting("vocabSmartSize", SMART_DEFAULT_SIZE);
   const status = !cfg.token
     ? `<span class="status-dot"></span><span class="status-text">Nicht eingerichtet</span>`
     : cfg.lastError
@@ -527,6 +529,10 @@ async function showSettings() {
 
       <h2 class="label">Vokabeln</h2>
       <div class="group">
+        <label class="field">
+          <span class="field-label">Smart: Vokabeln in der Rotation</span>
+          <input id="smart-size" type="number" inputmode="numeric" min="1" max="200" step="1" value="${escapeHtml(String(smartSize))}">
+        </label>
         <button class="row row-danger" id="reset-vocab-levels"><span class="row-main"><span class="row-title">Alle Vokabeln auf Stufe 1 zurücksetzen</span><span class="row-sub">Prioritäten bleiben erhalten</span></span></button>
         <button class="row row-danger" id="reset-vocab-stats"><span class="row-main"><span class="row-title">Vokabel-Statistik löschen</span></span></button>
       </div>`,
@@ -552,6 +558,14 @@ async function showSettings() {
       toast("Datei konnte nicht gelesen werden");
     }
     showSettings();
+  });
+  on("#smart-size", "change", async (e) => {
+    const n = Math.round(Number(e.target.value));
+    if (!Number.isFinite(n) || n < 1) { e.target.value = String(smartSize); return; }
+    const v = Math.min(200, n);
+    e.target.value = String(v);
+    await setSetting("vocabSmartSize", v);
+    toast(`Smart: ${v} Vokabeln in der Rotation`);
   });
   on("#reset-vocab-levels", "click", () =>
     confirmDialog({

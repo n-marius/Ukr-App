@@ -142,7 +142,7 @@ export function countDueStufe5(cards, levelsByKey) {
   return cards.filter((c) => isStufe5Due(levelsByKey.get(c.key), now)).length;
 }
 
-function cardWeight(card, levelsByKey, priosByKey, now) {
+function cardWeight(card, levelsByKey, priosByKey, now, ignoreRest = false) {
   const level = levelsByKey.get(card.key);
   const stufe = level?.stufe ?? 1;
   const prio = effectivePrio(card, priosByKey);
@@ -151,16 +151,17 @@ function cardWeight(card, levelsByKey, priosByKey, now) {
   const hours = (now - new Date(level.ts).getTime()) / 3_600_000;
   // Hohe Prio in Stufe 1 ignoriert die 24-Stunden-Sperre (sonst käme ein dreimal verfehltes Wort tagelang nicht).
   // Ebenso Karten, die per blauem Knopf der Gegenrichtung nach Stufe 4 gerückt sind (`noRest`).
-  if (hours < REST_HOURS && !(prio === "hoch" && stufe === 1) && !level.noRest) return 0;
+  if (!ignoreRest && hours < REST_HOURS && !(prio === "hoch" && stufe === 1) && !level.noRest) return 0;
   return (STUFE_WEIGHT[isStufe5Due(level, now) ? 2 : stufe] ?? 1) * recencyWeight(hours) * prioWeight;
 }
 
 // `excludeWordId`: das zuletzt gezogene Wort (gemischt: auch nicht in der Gegenrichtung direkt danach).
-export function pickWeightedCard(pool, levelsByKey, priosByKey, excludeWordId) {
+// `ignoreRest`: 24-h-Sperre aussetzen (Smart-Modus, dort sorgt die Rotation für die Verteilung).
+export function pickWeightedCard(pool, levelsByKey, priosByKey, excludeWordId, { ignoreRest = false } = {}) {
   const rest = pool.filter((c) => c.wordId !== excludeWordId);
   const candidates = rest.length > 0 ? rest : pool;
   const now = Date.now();
-  const weights = candidates.map((c) => cardWeight(c, levelsByKey, priosByKey, now));
+  const weights = candidates.map((c) => cardWeight(c, levelsByKey, priosByKey, now, ignoreRest));
   const total = weights.reduce((a, b) => a + b, 0);
   if (total <= 0) return null;
   let r = Math.random() * total;
