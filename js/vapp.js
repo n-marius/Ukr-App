@@ -153,7 +153,7 @@ export function setupVocab(ctx) {
     requestAnimationFrame(() => {
       root.querySelectorAll(".lvbar-seg").forEach((seg) => {
         const n = seg.querySelector(".lvbar-n");
-        n.hidden = n.scrollWidth + 8 > seg.clientWidth;
+        n.hidden = n.scrollWidth + 2 > seg.clientWidth; // scrollWidth enthält schon 2 × 3 px Innenabstand
       });
       const tick = root.querySelector(".lvbar-tick.is-unseen");
       const seg1 = root.querySelector('.lvbar-seg[data-stufe="1"]');
@@ -162,6 +162,12 @@ export function setupVocab(ctx) {
         const r = seg1.getBoundingClientRect();
         tick.style.left = `${r.left - wrap.left + (r.width * Number(tick.dataset.n)) / Number(tick.dataset.of)}px`;
       }
+      // Linienfarbe = Schriftfarbe der Fläche darunter (dunkel auf hellen, hell auf dunklen Graustufen).
+      root.querySelectorAll(".lvbar-tick").forEach((t) => {
+        const x = t.getBoundingClientRect().left + t.offsetWidth / 2;
+        const seg = [...root.querySelectorAll(".lvbar-seg")].find((sg) => { const b = sg.getBoundingClientRect(); return x >= b.left - 1 && x <= b.right + 1; });
+        if (seg) t.style.background = getComputedStyle(seg).color;
+      });
     });
   }
 
