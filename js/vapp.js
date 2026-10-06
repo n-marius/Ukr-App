@@ -131,20 +131,32 @@ export function setupVocab(ctx) {
 
   // ---------- Stufenbalken (wie die Speicheranzeige unter iOS, in Graustufen) ----------
 
+  // Darüber zwei dünne Linien: links so breit wie der Anteil noch nie bearbeiteter Karten (liegen in Stufe 1),
+  // rechts so breit wie der Anteil der Karten, die schon einmal in Stufe 5 waren.
   function levelBar(cards, levels) {
     const counts = countByStufe(cards, levels);
     const total = cards.length;
-    if (!total) return `<div class="lvbar is-empty" aria-label="Keine Karten in dieser Auswahl"></div>`;
+    if (!total) return `<div class="lvbar-marks"></div><div class="lvbar is-empty" aria-label="Keine Karten in dieser Auswahl"></div>`;
+    const unseen = cards.filter((c) => !levels.has(c.key)).length;
+    const was5 = cards.filter((c) => { const l = levels.get(c.key); return Math.max(l?.best ?? 0, l?.stufe ?? 0) >= 5; }).length;
+    const pct = (n) => `${((n / total) * 100).toFixed(2)}%`;
+    const marks = `<div class="lvbar-marks">${unseen ? `<span class="lvbar-mark is-unseen" data-n="${unseen}" data-of="${counts[1]}" style="width:${pct(unseen)}" title="Noch nie bearbeitet: ${plural(unseen, "Karte", "Karten")}"></span>` : ""}${was5 ? `<span class="lvbar-mark is-was5" style="width:${pct(was5)}" title="Schon einmal in Stufe 5: ${plural(was5, "Karte", "Karten")}"></span>` : ""}</div>`;
     const parts = STUFEN.filter((st) => counts[st] > 0).map((st) =>
       `<span class="lvbar-seg" data-stufe="${st}" style="flex-grow:${counts[st]}" title="Stufe ${st}: ${plural(counts[st], "Karte", "Karten")}"><span class="lvbar-n">${counts[st]}</span></span>`).join("");
-    return `<div class="lvbar" role="img" aria-label="${STUFEN.map((st) => `Stufe ${st}: ${counts[st]}`).join(", ")}">${parts}</div>`;
+    return `${marks}<div class="lvbar" role="img" aria-label="${STUFEN.map((st) => `Stufe ${st}: ${counts[st]}`).join(", ")}; noch nie bearbeitet: ${unseen}; schon einmal in Stufe 5: ${was5}">${parts}</div>`;
   }
   // Zahl nur zeigen, wenn sie in die Fläche passt.
   function fitLevelBar() {
-    requestAnimationFrame(() => root.querySelectorAll(".lvbar-seg").forEach((seg) => {
-      const n = seg.querySelector(".lvbar-n");
-      n.hidden = n.scrollWidth + 8 > seg.clientWidth;
-    }));
+    requestAnimationFrame(() => {
+      root.querySelectorAll(".lvbar-seg").forEach((seg) => {
+        const n = seg.querySelector(".lvbar-n");
+        n.hidden = n.scrollWidth + 8 > seg.clientWidth;
+      });
+      // Linie der unbearbeiteten Karten exakt an der Stufe-1-Fläche ausrichten (Lücken zwischen den Flächen).
+      const mark = root.querySelector(".lvbar-mark.is-unseen");
+      const seg1 = root.querySelector('.lvbar-seg[data-stufe="1"]');
+      if (mark && seg1) mark.style.width = `${(seg1.getBoundingClientRect().width * Number(mark.dataset.n)) / Number(mark.dataset.of)}px`;
+    });
   }
 
   // ---------- Schreiben: „Neu“-Hinweis ----------
